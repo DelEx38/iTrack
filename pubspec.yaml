@@ -1,0 +1,35 @@
+name: clinical_study_tracker
+description: Application de suivi d'études cliniques
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI
+  google_fonts: ^6.1.0
+  flutter_animate: ^4.3.0
+
+  # Utils
+  intl: ^0.19.0
+
+  # State management
+  provider: ^6.1.1
+
+  # Database
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0
+  sqflite_common_ffi_web: ^1.1.1
+  path: ^1.8.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
