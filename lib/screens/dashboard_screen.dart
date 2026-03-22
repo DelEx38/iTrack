@@ -2,154 +2,242 @@ import 'package:flutter/material.dart';
 import '../models/study.dart';
 import '../models/patient.dart';
 import '../models/site.dart';
-import '../screens/sites_screen.dart';
+import '../services/database_service.dart';
+import '../services/excel_export_service.dart';
+import '../services/file_download_service.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final Study study;
 
   const DashboardScreen({super.key, required this.study});
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  List<Patient> _patients = [];
+  List<StudySite> _sites = [];
+  bool _isLoading = true;
+  bool _isExporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final patients = await DatabaseService.getPatients(widget.study.id!);
+      final sites = await DatabaseService.getStudySites(widget.study.id!);
+      setState(() {
+        _patients = patients;
+        _sites = sites;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading data: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToExcel() async {
+    setState(() => _isExporting = true);
+    try {
+      final bytes = await ExcelExportService.exportStudy(widget.study);
+      final fileName = '${widget.study.studyNumber}_export.xlsx';
+      FileDownloadService.downloadFile(bytes, fileName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Exported: $fileName')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     // Stats calculees
-    final totalPatients = demoPatients.length;
-    final screeningCount = demoPatients.where((p) => p.status == PatientStatus.screening).length;
-    final includedCount = demoPatients.where((p) => p.status == PatientStatus.included).length;
-    final completedCount = demoPatients.where((p) => p.status == PatientStatus.completed).length;
+    final totalPatients = _patients.length;
+    final screeningCount = _patients.where((p) => p.status == PatientStatus.screening).length;
+    final includedCount = _patients.where((p) => p.status == PatientStatus.included).length;
+    final completedCount = _patients.where((p) => p.status == PatientStatus.completed).length;
 
-    final totalSites = demoSites.length;
-    final activeSites = demoSites.where((s) => s.status == SiteStatus.active).length;
-    final totalTarget = demoSites.fold<int>(0, (sum, s) => sum + s.targetPatients);
+    final totalSites = _sites.length;
+    final activeSites = _sites.where((s) => s.status == SiteStatus.active).length;
+    final totalTarget = _sites.fold<int>(0, (sum, s) => sum + s.targetPatients);
 
-    return SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tete etude
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        study.name,
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _InfoChip(label: study.number, icon: Icons.tag),
-                          const SizedBox(width: 12),
-                          _InfoChip(label: 'Phase ${study.phase ?? "-"}', icon: Icons.science),
-                          const SizedBox(width: 12),
-                          _InfoChip(label: study.sponsor ?? '-', icon: Icons.business),
-                          const SizedBox(width: 12),
-                          _InfoChip(label: study.pathology ?? '-', icon: Icons.medical_services),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withAlpha(50),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.circle, size: 10, color: Colors.green),
-                      const SizedBox(width: 8),
-                      Text(study.status, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Cartes de stats principales
-            Row(
-              children: [
-                Expanded(child: _DashboardCard(
-                  title: 'Recruitment',
-                  value: '$includedCount / $totalTarget',
-                  subtitle: '${(totalTarget > 0 ? (includedCount / totalTarget * 100) : 0).toStringAsFixed(0)}% of target',
-                  icon: Icons.people,
-                  color: Colors.blue,
-                  progress: totalTarget > 0 ? includedCount / totalTarget : 0,
-                )),
-                const SizedBox(width: 24),
-                Expanded(child: _DashboardCard(
-                  title: 'Sites',
-                  value: '$activeSites / $totalSites',
-                  subtitle: 'Active sites',
-                  icon: Icons.location_on,
-                  color: Colors.green,
-                )),
-                const SizedBox(width: 24),
-                Expanded(child: _DashboardCard(
-                  title: 'Screening',
-                  value: '$screeningCount',
-                  subtitle: 'Patients in screening',
-                  icon: Icons.hourglass_empty,
-                  color: Colors.orange,
-                )),
-                const SizedBox(width: 24),
-                Expanded(child: _DashboardCard(
-                  title: 'Completed',
-                  value: '$completedCount',
-                  subtitle: 'Patients completed',
-                  icon: Icons.check_circle,
-                  color: Colors.purple,
-                )),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Deux colonnes
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // En-tete etude
+              Row(
                 children: [
-                  // Colonne gauche - Sites recents
                   Expanded(
-                    child: _DashboardSection(
-                      title: 'Sites Overview',
-                      action: TextButton(
-                        onPressed: () {},
-                        child: const Text('View All'),
-                      ),
-                      child: Column(
-                        children: demoSites.take(4).map((site) => _SiteListItem(site: site)).toList(),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.study.name,
+                          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _InfoChip(label: widget.study.number, icon: Icons.tag),
+                            const SizedBox(width: 12),
+                            _InfoChip(label: 'Phase ${widget.study.phase ?? "-"}', icon: Icons.science),
+                            const SizedBox(width: 12),
+                            _InfoChip(label: widget.study.sponsor ?? '-', icon: Icons.business),
+                            const SizedBox(width: 12),
+                            _InfoChip(label: widget.study.pathology ?? '-', icon: Icons.medical_services),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 24),
-                  // Colonne droite - Patients recents
-                  Expanded(
-                    child: _DashboardSection(
-                      title: 'Recent Patients',
-                      action: TextButton(
-                        onPressed: () {},
-                        child: const Text('View All'),
-                      ),
-                      child: Column(
-                        children: demoPatients.take(5).map((patient) => _PatientListItem(patient: patient)).toList(),
-                      ),
+                  const SizedBox(width: 16),
+                  // Bouton Export Excel
+                  FilledButton.icon(
+                    onPressed: _isExporting ? null : _exportToExcel,
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.download),
+                    label: Text(_isExporting ? 'Exporting...' : 'Export Excel'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green[700],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withAlpha(50),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle, size: 10, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Text(widget.study.status, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w500)),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+
+              const SizedBox(height: 32),
+
+              // Cartes de stats principales
+              Row(
+                children: [
+                  Expanded(child: _DashboardCard(
+                    title: 'Recruitment',
+                    value: '$includedCount / $totalTarget',
+                    subtitle: '${(totalTarget > 0 ? (includedCount / totalTarget * 100) : 0).toStringAsFixed(0)}% of target',
+                    icon: Icons.people,
+                    color: Colors.blue,
+                    progress: totalTarget > 0 ? includedCount / totalTarget : 0,
+                  )),
+                  const SizedBox(width: 24),
+                  Expanded(child: _DashboardCard(
+                    title: 'Sites',
+                    value: '$activeSites / $totalSites',
+                    subtitle: 'Active sites',
+                    icon: Icons.location_on,
+                    color: Colors.green,
+                  )),
+                  const SizedBox(width: 24),
+                  Expanded(child: _DashboardCard(
+                    title: 'Screening',
+                    value: '$screeningCount',
+                    subtitle: 'Patients in screening',
+                    icon: Icons.hourglass_empty,
+                    color: Colors.orange,
+                  )),
+                  const SizedBox(width: 24),
+                  Expanded(child: _DashboardCard(
+                    title: 'Completed',
+                    value: '$completedCount',
+                    subtitle: 'Patients completed',
+                    icon: Icons.check_circle,
+                    color: Colors.purple,
+                  )),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // Deux colonnes
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Colonne gauche - Sites
+                    Expanded(
+                      child: _DashboardSection(
+                        title: 'Sites Overview',
+                        action: TextButton(
+                          onPressed: () {},
+                          child: const Text('View All'),
+                        ),
+                        child: _sites.isEmpty
+                            ? Center(child: Text('No sites', style: TextStyle(color: Colors.grey[500])))
+                            : Column(
+                                children: _sites.take(4).map((site) => _SiteListItem(site: site)).toList(),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    // Colonne droite - Patients recents
+                    Expanded(
+                      child: _DashboardSection(
+                        title: 'Recent Patients',
+                        action: TextButton(
+                          onPressed: () {},
+                          child: const Text('View All'),
+                        ),
+                        child: _patients.isEmpty
+                            ? Center(child: Text('No patients', style: TextStyle(color: Colors.grey[500])))
+                            : Column(
+                                children: _patients.take(5).map((patient) => _PatientListItem(patient: patient)).toList(),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      );
+    );
   }
 }
 
@@ -290,6 +378,7 @@ class _SiteListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = site.status == SiteStatus.active ? Colors.green : Colors.orange;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -298,7 +387,7 @@ class _SiteListItem extends StatelessWidget {
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: Color(site.status.color),
+              color: statusColor,
               shape: BoxShape.circle,
             ),
           ),
@@ -317,7 +406,10 @@ class _SiteListItem extends StatelessWidget {
             children: [
               Text(
                 '${site.patientCount}/${site.targetPatients}',
-                style: TextStyle(color: Color(site.progressColor), fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  color: site.patientCount >= site.targetPatients ? Colors.green : Colors.orange,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               Text(site.status.label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             ],
