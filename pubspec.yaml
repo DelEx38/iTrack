@@ -29,6 +29,11 @@ dependencies:
   # Excel export
   excel: ^4.0.3
 
+  # File picker & document parsing
+  file_picker: ^8.0.0
+  archive: ^3.6.1
+  xml: ^6.5.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

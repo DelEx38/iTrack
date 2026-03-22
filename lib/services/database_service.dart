@@ -693,6 +693,25 @@ class DatabaseService {
     )).toList();
   }
 
+  static Future<void> saveVisitConfigs(int studyId, List<VisitConfig> configs) async {
+    final db = await database;
+
+    // Supprimer les anciennes configs
+    await db.delete('visit_config', where: 'study_id = ?', whereArgs: [studyId]);
+
+    // Insérer les nouvelles
+    for (final config in configs) {
+      await db.insert('visit_config', {
+        'study_id': studyId,
+        'visit_number': config.visitNumber,
+        'visit_name': config.visitName,
+        'target_day': config.targetDay,
+        'window_before': config.windowBefore,
+        'window_after': config.windowAfter,
+      });
+    }
+  }
+
   static Future<List<Visit>> getPatientVisits(int patientId) async {
     final db = await database;
     final maps = await db.query(
