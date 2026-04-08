@@ -46,6 +46,9 @@ class Database:
             )
             self.connection.row_factory = sqlite3.Row
             self._enable_foreign_keys()
+            self.connection.execute("PRAGMA journal_mode=WAL")
+            self.connection.execute("PRAGMA cache_size=10000")
+            self.connection.execute("PRAGMA synchronous=NORMAL")
         return self.connection
 
     def _enable_foreign_keys(self) -> None:
@@ -377,6 +380,16 @@ class Database:
             )
         """)
 
+        # Index sur les clés étrangères fréquemment utilisées
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_patients_study ON patients(study_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_visits_patient ON visits(patient_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ae_patient ON adverse_events(patient_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_queries_patient ON queries(patient_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_monitoring_patient ON monitoring(patient_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_consents_patient ON consents(patient_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_study_vendors_study ON study_vendors(study_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_study_sites_study ON study_sites(study_id)")
+
         conn.commit()
 
         # Migrations
@@ -497,7 +510,7 @@ class Database:
         conn = self.connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM studies ORDER BY study_number")
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def create_study(self, study_number: str, study_name: str = "", eu_ct_number: str = "",
                      nct_number: str = "", phase: str = "", investigational_product: str = "",
@@ -548,7 +561,7 @@ class Database:
         cursor.execute("SELECT * FROM studies WHERE id = ?", (study_id,))
         row = cursor.fetchone()
         if row:
-            return dict(zip([d[0] for d in cursor.description], row))
+            return dict(row)
         return None
 
     # ========== Méthodes pour les vendors ==========
@@ -558,7 +571,7 @@ class Database:
         conn = self.connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM vendor_types ORDER BY type_name")
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_study_vendors(self, study_id: int) -> list:
         """Récupère les vendors d'une étude."""
@@ -571,7 +584,7 @@ class Database:
             WHERE sv.study_id = ?
             ORDER BY vt.type_name
         """, (study_id,))
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def add_study_vendor(self, study_id: int, vendor_type_id: int, vendor_name: str,
                          contact: str = "", comments: str = "") -> int:
@@ -625,7 +638,7 @@ class Database:
         conn = self.connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM sites ORDER BY site_number")
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_site_by_id(self, site_id: int) -> dict:
         """Récupère un site par son ID."""
@@ -634,7 +647,7 @@ class Database:
         cursor.execute("SELECT * FROM sites WHERE id = ?", (site_id,))
         row = cursor.fetchone()
         if row:
-            return dict(zip([d[0] for d in cursor.description], row))
+            return dict(row)
         return None
 
     def create_site(self, site_number: str, site_name: str = "",
@@ -694,7 +707,7 @@ class Database:
             WHERE ss.study_id = ?
             ORDER BY s.site_number
         """, (study_id,))
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_site_studies(self, site_id: int) -> list:
         """Récupère les études auxquelles participe un site."""
@@ -707,7 +720,7 @@ class Database:
             WHERE ss.site_id = ?
             ORDER BY st.study_number
         """, (site_id,))
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def add_site_to_study(self, study_id: int, site_id: int, status: str = "Active",
                           principal_investigator: str = "", activation_date: str = None,
@@ -762,7 +775,7 @@ class Database:
         """, (study_site_id,))
         row = cursor.fetchone()
         if row:
-            return dict(zip([d[0] for d in cursor.description], row))
+            return dict(row)
         return None
 
     def get_sites_not_in_study(self, study_id: int) -> list:
@@ -774,7 +787,7 @@ class Database:
             WHERE id NOT IN (SELECT site_id FROM study_sites WHERE study_id = ?)
             ORDER BY site_number
         """, (study_id,))
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     # ========== Méthodes pour les visit_config ==========
 
@@ -783,7 +796,7 @@ class Database:
         conn = self.connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM visit_config ORDER BY visit_order")
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def create_visit_config(self, visit_name: str, target_day: int = 0,
                             window_before: int = 0, window_after: int = 0) -> int:
@@ -831,7 +844,7 @@ class Database:
         conn = self.connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM consent_config ORDER BY consent_type")
-        return [dict(zip([d[0] for d in cursor.description], row)) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()]
 
     def create_consent_config(self, consent_type: str, versions: str = "1.0",
                                is_required: bool = True) -> int:
