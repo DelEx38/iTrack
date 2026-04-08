@@ -124,12 +124,13 @@ class Database:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS visit_config (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                study_id INTEGER,
                 visit_name TEXT NOT NULL,
                 visit_order INTEGER NOT NULL,
                 target_day INTEGER NOT NULL DEFAULT 0,
                 window_before INTEGER NOT NULL DEFAULT 0,
                 window_after INTEGER NOT NULL DEFAULT 0,
-                UNIQUE(visit_name)
+                FOREIGN KEY (study_id) REFERENCES studies(id) ON DELETE CASCADE
             )
         """)
 
@@ -308,10 +309,12 @@ class Database:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS consent_config (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                study_id INTEGER,
                 consent_type TEXT NOT NULL,
                 versions TEXT DEFAULT '1.0',
                 is_required INTEGER DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (study_id) REFERENCES studies(id) ON DELETE CASCADE
             )
         """)
 
@@ -440,27 +443,42 @@ class Database:
                     cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
             conn.commit()
 
-    def init_default_data(self, num_visits: int = 25) -> None:
-        """Initialise les données par défaut."""
+        # Migration: scoper visit_config et consent_config par étude
+        for table in ("visit_config", "consent_config"):
+            existing = self._get_columns(cursor, table)
+            if "study_id" not in existing:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN study_id INTEGER")
+                # Rattacher les enregistrements orphelins à la première étude
+                cursor.execute(f"""
+                    UPDATE {table} SET study_id = (SELECT MIN(id) FROM studies)
+                    WHERE study_id IS NULL
+                """)
+                conn.commit()
+
+    def init_default_data(self, study_id: int, num_visits: int = 25) -> None:
+        """Initialise les données par défaut pour une étude."""
         conn = self.connect()
         cursor = conn.cursor()
 
-        # Vérifier si déjà initialisé
-        cursor.execute("SELECT COUNT(*) FROM visit_config")
+        # Vérifier si cette étude a déjà des configs
+        cursor.execute("SELECT COUNT(*) FROM visit_config WHERE study_id = ?", (study_id,))
         if cursor.fetchone()[0] > 0:
             return
 
         # Visites par défaut
         for i in range(1, num_visits + 1):
             cursor.execute(
-                "INSERT INTO visit_config (visit_name, visit_order, target_day, window_before, window_after) VALUES (?, ?, ?, ?, ?)",
-                (f"V{i}", i, 0, 0, 0)
+                "INSERT INTO visit_config (study_id, visit_name, visit_order, target_day, window_before, window_after) VALUES (?, ?, ?, ?, ?, ?)",
+                (study_id, f"V{i}", i, 0, 0, 0)
             )
 
         # Types de consentement par défaut
-        consent_types = ["ICF Principal", "ICF Sous-étude PK", "ICF Génétique"]
-        for ct in consent_types:
-            cursor.execute("INSERT INTO consent_types (type_name) VALUES (?)", (ct,))
+        consent_configs = ["ICF Principal", "ICF Sous-étude PK", "ICF Génétique"]
+        for ct in consent_configs:
+            cursor.execute(
+                "INSERT INTO consent_config (study_id, consent_type, versions, is_required) VALUES (?, ?, ?, ?)",
+                (study_id, ct, "1.0", 1)
+            )
 
         # Types de vendors par défaut
         cursor.execute("SELECT COUNT(*) FROM vendor_types")
@@ -766,25 +784,31 @@ class Database:
 
     # ========== Méthodes pour les visit_config ==========
 
-    def get_visit_configs(self) -> list:
-        """Récupère toutes les configurations de visites."""
+    def get_visit_configs(self, study_id: int = None) -> list:
+        """Récupère les configurations de visites d'une étude."""
         conn = self.connect()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM visit_config ORDER BY visit_order")
+        if study_id:
+            cursor.execute("SELECT * FROM visit_config WHERE study_id = ? ORDER BY visit_order", (study_id,))
+        else:
+            cursor.execute("SELECT * FROM visit_config ORDER BY visit_order")
         return [dict(row) for row in cursor.fetchall()]
 
     def create_visit_config(self, visit_name: str, target_day: int = 0,
-                            window_before: int = 0, window_after: int = 0) -> int:
+                            window_before: int = 0, window_after: int = 0,
+                            study_id: int = None) -> int:
         """Crée une configuration de visite."""
         conn = self.connect()
         cursor = conn.cursor()
-        # Trouver le prochain visit_order
-        cursor.execute("SELECT COALESCE(MAX(visit_order), 0) + 1 FROM visit_config")
+        if study_id:
+            cursor.execute("SELECT COALESCE(MAX(visit_order), 0) + 1 FROM visit_config WHERE study_id = ?", (study_id,))
+        else:
+            cursor.execute("SELECT COALESCE(MAX(visit_order), 0) + 1 FROM visit_config")
         visit_order = cursor.fetchone()[0]
         cursor.execute(
-            """INSERT INTO visit_config (visit_name, visit_order, target_day, window_before, window_after)
-               VALUES (?, ?, ?, ?, ?)""",
-            (visit_name, visit_order, target_day, window_before, window_after)
+            """INSERT INTO visit_config (study_id, visit_name, visit_order, target_day, window_before, window_after)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (study_id, visit_name, visit_order, target_day, window_before, window_after)
         )
         conn.commit()
         return cursor.lastrowid
@@ -814,21 +838,24 @@ class Database:
 
     # ========== Méthodes pour les consent_config ==========
 
-    def get_consent_configs(self) -> list:
-        """Récupère toutes les configurations de consentements."""
+    def get_consent_configs(self, study_id: int = None) -> list:
+        """Récupère les configurations de consentements d'une étude."""
         conn = self.connect()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM consent_config ORDER BY consent_type")
+        if study_id:
+            cursor.execute("SELECT * FROM consent_config WHERE study_id = ? ORDER BY consent_type", (study_id,))
+        else:
+            cursor.execute("SELECT * FROM consent_config ORDER BY consent_type")
         return [dict(row) for row in cursor.fetchall()]
 
     def create_consent_config(self, consent_type: str, versions: str = "1.0",
-                               is_required: bool = True) -> int:
+                               is_required: bool = True, study_id: int = None) -> int:
         """Crée une configuration de consentement."""
         conn = self.connect()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO consent_config (consent_type, versions, is_required) VALUES (?, ?, ?)",
-            (consent_type, versions, int(is_required))
+            "INSERT INTO consent_config (study_id, consent_type, versions, is_required) VALUES (?, ?, ?, ?)",
+            (study_id, consent_type, versions, int(is_required))
         )
         conn.commit()
         return cursor.lastrowid

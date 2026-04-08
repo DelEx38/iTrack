@@ -14,8 +14,7 @@ class BaseQueries:
         self.conn = connection
 
     def _dict_from_row(self, row: sqlite3.Row) -> Dict[str, Any]:
-        """Convertit une Row en dictionnaire."""
-        return dict(zip(row.keys(), row))
+        return dict(row)
 
 
 class PatientQueries(BaseQueries):
@@ -132,10 +131,20 @@ class PatientQueries(BaseQueries):
 class VisitQueries(BaseQueries):
     """Requêtes pour la gestion des visites."""
 
+    def __init__(self, connection: sqlite3.Connection, study_id: Optional[int] = None):
+        super().__init__(connection)
+        self.study_id = study_id
+
+    def set_study(self, study_id: int) -> None:
+        self.study_id = study_id
+
     def get_configs(self) -> List[Dict[str, Any]]:
-        """Récupère la configuration des visites."""
+        """Récupère la configuration des visites de l'étude courante."""
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM visit_config ORDER BY visit_order")
+        if self.study_id:
+            cursor.execute("SELECT * FROM visit_config WHERE study_id = ? ORDER BY visit_order", (self.study_id,))
+        else:
+            cursor.execute("SELECT * FROM visit_config ORDER BY visit_order")
         return [self._dict_from_row(row) for row in cursor.fetchall()]
 
     def get_config(self, config_id: int) -> Optional[Dict[str, Any]]:
@@ -259,10 +268,20 @@ class VisitQueries(BaseQueries):
 class ConsentQueries(BaseQueries):
     """Requêtes pour la gestion des consentements."""
 
+    def __init__(self, connection: sqlite3.Connection, study_id: Optional[int] = None):
+        super().__init__(connection)
+        self.study_id = study_id
+
+    def set_study(self, study_id: int) -> None:
+        self.study_id = study_id
+
     def get_configs(self) -> List[Dict[str, Any]]:
-        """Récupère les configurations de consentement."""
+        """Récupère les configurations de consentement de l'étude courante."""
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM consent_config ORDER BY consent_type")
+        if self.study_id:
+            cursor.execute("SELECT * FROM consent_config WHERE study_id = ? ORDER BY consent_type", (self.study_id,))
+        else:
+            cursor.execute("SELECT * FROM consent_config ORDER BY consent_type")
         return [self._dict_from_row(row) for row in cursor.fetchall()]
 
     def get_by_patient(self, patient_id: int) -> List[Dict[str, Any]]:

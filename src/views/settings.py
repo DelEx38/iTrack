@@ -427,7 +427,7 @@ class SettingsView(ft.Container):
 
     def _show_visits(self):
         """Affiche la configuration des visites."""
-        configs = self.db.get_visit_configs()
+        configs = self.db.get_visit_configs(study_id=self.current_study["id"] if self.current_study else None)
 
         # Bouton importer depuis SoA
         import_btn = ft.Button(
@@ -582,7 +582,7 @@ class SettingsView(ft.Container):
         for visit in visits:
             try:
                 # Vérifier si la visite existe déjà
-                existing = self.db.get_visit_configs()
+                existing = self.db.get_visit_configs(study_id=self.current_study["id"] if self.current_study else None)
                 exists = any(v.get("visit_name") == visit["visit_name"] for v in existing)
 
                 if exists:
@@ -622,7 +622,7 @@ class SettingsView(ft.Container):
     def _add_visit_config(self, e):
         def on_save(data):
             try:
-                self.db.create_visit_config(**data)
+                self.db.create_visit_config(**data, study_id=self.current_study["id"] if self.current_study else None)
                 self._show_visits()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
@@ -659,7 +659,7 @@ class SettingsView(ft.Container):
 
     def _show_consent_types(self):
         """Affiche les types de consentements."""
-        configs = self.db.get_consent_configs()
+        configs = self.db.get_consent_configs(study_id=self.current_study["id"] if self.current_study else None)
 
         # Bouton ajouter
         add_btn = ft.Button(
@@ -742,7 +742,7 @@ class SettingsView(ft.Container):
     def _add_consent_config(self, e):
         def on_save(data):
             try:
-                self.db.create_consent_config(**data)
+                self.db.create_consent_config(**data, study_id=self.current_study["id"] if self.current_study else None)
                 self._show_consent_types()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))

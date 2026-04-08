@@ -48,7 +48,6 @@ class ClinicalStudyApp:
         self.db = Database()
         self.db.connect()
         self.db.init_schema()
-        self.db.init_default_data(num_visits=25)
 
         # Charger les études
         self.studies = self.db.get_studies()
@@ -61,11 +60,14 @@ class ClinicalStudyApp:
         else:
             self.current_study = self.studies[0]
 
+        # Initialiser les données par défaut pour l'étude courante
+        self.db.init_default_data(study_id=self.current_study["id"], num_visits=25)
+
         # Requêtes
         study_id = self.current_study["id"] if self.current_study else None
         self.patient_queries = PatientQueries(self.db.connection, study_id)
-        self.visit_queries = VisitQueries(self.db.connection)
-        self.consent_queries = ConsentQueries(self.db.connection)
+        self.visit_queries = VisitQueries(self.db.connection, study_id)
+        self.consent_queries = ConsentQueries(self.db.connection, study_id)
         self.ae_queries = AdverseEventQueries(self.db.connection, study_id)
         self.query_queries = QueryQueries(self.db.connection, study_id)
         self.monitoring_queries = MonitoringQueries(self.db.connection, study_id)
@@ -125,10 +127,13 @@ class ClinicalStudyApp:
         for study in self.studies:
             if study.get("study_number") == study_identifier or study.get("study_name") == study_identifier:
                 self.current_study = study
-                self.patient_queries.set_study(study["id"])
-                self.ae_queries.set_study(study["id"])
-                self.query_queries.set_study(study["id"])
-                self.monitoring_queries.set_study(study["id"])
+                sid = study["id"]
+                self.patient_queries.set_study(sid)
+                self.visit_queries.set_study(sid)
+                self.consent_queries.set_study(sid)
+                self.ae_queries.set_study(sid)
+                self.query_queries.set_study(sid)
+                self.monitoring_queries.set_study(sid)
                 self._update_title()
                 self._show_dashboard()
                 break
@@ -167,10 +172,13 @@ class ClinicalStudyApp:
     def _on_study_select_from_landing(self, study: Dict) -> None:
         """Callback quand une étude est sélectionnée depuis la landing."""
         self.current_study = study
-        self.patient_queries.set_study(study["id"])
-        self.ae_queries.set_study(study["id"])
-        self.query_queries.set_study(study["id"])
-        self.monitoring_queries.set_study(study["id"])
+        sid = study["id"]
+        self.patient_queries.set_study(sid)
+        self.visit_queries.set_study(sid)
+        self.consent_queries.set_study(sid)
+        self.ae_queries.set_study(sid)
+        self.query_queries.set_study(sid)
+        self.monitoring_queries.set_study(sid)
         self._update_title()
 
         # Afficher la sidebar
