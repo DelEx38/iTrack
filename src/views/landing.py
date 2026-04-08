@@ -13,13 +13,9 @@ from src.components import StatusBadge
 class StudyCard(ft.Container):
     """Carte représentant une étude."""
 
-    def __init__(self, study: Dict, on_click: Callable[[Dict], None], db):
+    def __init__(self, study: Dict, on_click: Callable[[Dict], None], stats: Dict):
         self.study = study
         self._on_click_callback = on_click
-        self.db = db
-
-        # Récupérer les stats
-        stats = self._get_study_stats()
 
         # Badge phase
         phase = study.get("phase", "")
@@ -91,28 +87,6 @@ class StudyCard(ft.Container):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=Spacing.XXXS,
         )
-
-    def _get_study_stats(self) -> Dict:
-        """Récupère les statistiques de l'étude."""
-        try:
-            cursor = self.db.connection.cursor()
-            study_id = self.study["id"]
-
-            cursor.execute("SELECT COUNT(*) FROM patients WHERE study_id = ?", (study_id,))
-            patients = cursor.fetchone()[0]
-
-            cursor.execute(
-                "SELECT COUNT(*) FROM visits v JOIN patients p ON v.patient_id = p.id WHERE p.study_id = ?",
-                (study_id,)
-            )
-            visits = cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM adverse_events WHERE study_id = ?", (study_id,))
-            ae = cursor.fetchone()[0]
-
-            return {"patients": patients, "visits": visits, "ae": ae}
-        except Exception:
-            return {"patients": 0, "visits": 0, "ae": 0}
 
     def _handle_click(self, e):
         self._on_click_callback(self.study)
@@ -201,6 +175,8 @@ class LandingView(ft.Container):
         self.studies_grid.controls.clear()
 
         studies = self.db.get_studies()
+        # Une seule requête batch pour toutes les stats
+        all_stats = self.db.get_all_studies_stats()
 
         if search_term:
             search_lower = search_term.lower()
@@ -221,8 +197,10 @@ class LandingView(ft.Container):
                 )
             )
         else:
+            empty_stats = {"patients": 0, "visits": 0, "ae": 0}
             for study in studies:
-                card = StudyCard(study=study, on_click=self.on_study_select, db=self.db)
+                stats = all_stats.get(study["id"], empty_stats)
+                card = StudyCard(study=study, on_click=self.on_study_select, stats=stats)
                 self.studies_grid.controls.append(card)
 
     async def _on_search(self, e):

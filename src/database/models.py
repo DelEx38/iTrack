@@ -6,7 +6,7 @@ import sqlite3
 import sys
 from pathlib import Path
 from datetime import datetime, date
-from typing import Optional
+from typing import Dict, Optional
 
 
 def get_app_path() -> Path:
@@ -109,16 +109,6 @@ class Database:
             )
         """)
 
-        # Table des paramètres d'étude (legacy, gardé pour compatibilité)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS study_settings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                study_name TEXT NOT NULL,
-                protocol_number TEXT,
-                sponsor TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
 
         # Table des visites prévues (configuration)
         cursor.execute("""
@@ -443,6 +433,10 @@ class Database:
                     cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
             conn.commit()
 
+        # Migration: supprimer la table legacy inutilisée
+        cursor.execute("DROP TABLE IF EXISTS study_settings")
+        conn.commit()
+
         # Migration: scoper visit_config et consent_config par étude
         for table in ("visit_config", "consent_config"):
             existing = self._get_columns(cursor, table)
@@ -504,6 +498,25 @@ class Database:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM studies ORDER BY study_number")
         return [dict(row) for row in cursor.fetchall()]
+
+    def get_all_studies_stats(self) -> Dict[int, dict]:
+        """Retourne les stats (patients, visites, AE) pour toutes les études en une seule requête."""
+        conn = self.connect()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                s.id,
+                (SELECT COUNT(*) FROM patients WHERE study_id = s.id) AS patients,
+                (SELECT COUNT(*) FROM visits v
+                 JOIN patients p ON v.patient_id = p.id
+                 WHERE p.study_id = s.id) AS visits,
+                (SELECT COUNT(*) FROM adverse_events ae
+                 JOIN patients p ON ae.patient_id = p.id
+                 WHERE p.study_id = s.id) AS ae
+            FROM studies s
+        """)
+        return {row["id"]: {"patients": row["patients"], "visits": row["visits"], "ae": row["ae"]}
+                for row in cursor.fetchall()}
 
     def create_study(self, study_number: str, study_name: str = "", eu_ct_number: str = "",
                      nct_number: str = "", phase: str = "", investigational_product: str = "",
