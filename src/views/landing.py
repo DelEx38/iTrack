@@ -3,6 +3,7 @@
 Page d'accueil avec liste des études.
 """
 
+import asyncio
 import flet as ft
 from typing import Callable, Dict, List
 from src.theme import AppColors, Typography, Spacing, Radius
@@ -224,10 +225,14 @@ class LandingView(ft.Container):
                 card = StudyCard(study=study, on_click=self.on_study_select, db=self.db)
                 self.studies_grid.controls.append(card)
 
-    def _on_search(self, e):
+    async def _on_search(self, e):
+        term = e.data
+        await asyncio.sleep(0.25)
+        if self.search_field.value != term:
+            return
         self._load_studies(e.control.value)
         if self.page:
-            self.studies_grid.update()
+            self.page.update()
 
     def refresh(self) -> None:
         """Rafraîchit la liste des études."""

@@ -3,6 +3,7 @@
 Gestion des patients.
 """
 
+import asyncio
 import flet as ft
 from typing import Optional, Dict
 from src.theme import AppColors, Typography, Spacing, Radius
@@ -258,14 +259,17 @@ class PatientsView(ft.Container):
             StatChip("Withdrawn", str(counts.get("Withdrawn", 0)), AppColors.ERROR),
         ]
 
-    def _on_search(self, e):
+    async def _on_search(self, e):
+        term = e.data
+        await asyncio.sleep(0.25)
+        if self.search_field.value != term:
+            return
         self._load_patients(
             search=self.search_field.value,
             status_filter=self.status_filter.value,
         )
         if self.page:
-            self.patients_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _on_filter_change(self, e):
         self._load_patients(
@@ -273,16 +277,14 @@ class PatientsView(ft.Container):
             status_filter=e.data,
         )
         if self.page:
-            self.patients_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _add_patient(self, e):
         def on_save(data):
             try:
                 self.patient_queries.create(**data)
                 self._load_patients(self.search_field.value, self.status_filter.value)
-                self.patients_table.update()
-                self.stats_row.update()
+                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -294,8 +296,7 @@ class PatientsView(ft.Container):
             try:
                 self.patient_queries.update(data["id"], **{k: v for k, v in data.items() if k != "id"})
                 self._load_patients(self.search_field.value, self.status_filter.value)
-                self.patients_table.update()
-                self.stats_row.update()
+                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -307,8 +308,7 @@ class PatientsView(ft.Container):
             try:
                 self.patient_queries.delete(patient["id"])
                 self._load_patients(self.search_field.value, self.status_filter.value)
-                self.patients_table.update()
-                self.stats_row.update()
+                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 

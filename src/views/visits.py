@@ -236,9 +236,7 @@ class VisitsView(ft.Container):
         patient_id = int(e.data)
         self._load_visits(patient_id)
         if self.page:
-            self.visits_table.update()
-            self.stats_row.update()
-            self.patient_info.update()
+            self.page.update()
 
     def _load_visits(self, patient_id: int):
         """Charge les visites pour un patient."""
@@ -374,8 +372,7 @@ class VisitsView(ft.Container):
                     self.visit_queries.record_visit(**data)
                 self._load_visits(patient_id)
                 if self.page:
-                    self.visits_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 

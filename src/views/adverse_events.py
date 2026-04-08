@@ -3,6 +3,7 @@
 Gestion des événements indésirables (EI/EIG).
 """
 
+import asyncio
 import flet as ft
 from typing import Optional, Dict, List
 from datetime import datetime
@@ -357,17 +358,19 @@ class AdverseEventsView(ft.Container):
             StatChip("Fatal", fatal, AppColors.ERROR),
         ])
 
-    def _on_search(self, e):
+    async def _on_search(self, e):
+        term = e.data
+        await asyncio.sleep(0.25)
+        if self.search_field.value != term:
+            return
         self._load_ae(search=self.search_field.value, outcome_filter=self.outcome_filter.value)
         if self.page:
-            self.ae_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _on_filter_change(self, e):
         self._load_ae(search=self.search_field.value, outcome_filter=e.data)
         if self.page:
-            self.ae_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _add_ae(self, e):
         patients = self.patient_queries.get_all()
@@ -377,8 +380,7 @@ class AdverseEventsView(ft.Container):
                 self.ae_queries.create(**data)
                 self._load_ae(self.search_field.value, self.outcome_filter.value)
                 if self.page:
-                    self.ae_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -393,8 +395,7 @@ class AdverseEventsView(ft.Container):
                 self.ae_queries.update(data["id"], **{k: v for k, v in data.items() if k != "id"})
                 self._load_ae(self.search_field.value, self.outcome_filter.value)
                 if self.page:
-                    self.ae_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -407,8 +408,7 @@ class AdverseEventsView(ft.Container):
                 self.ae_queries.delete(ae["id"])
                 self._load_ae(self.search_field.value, self.outcome_filter.value)
                 if self.page:
-                    self.ae_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 

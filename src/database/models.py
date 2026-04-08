@@ -395,75 +395,50 @@ class Database:
         # Migrations
         self._run_migrations(cursor, conn)
 
+    def _get_columns(self, cursor, table: str) -> set:
+        """Retourne l'ensemble des colonnes d'une table via PRAGMA."""
+        return {row["name"] for row in cursor.execute(f"PRAGMA table_info({table})")}
+
     def _run_migrations(self, cursor, conn) -> None:
         """Exécute les migrations nécessaires."""
-        # Migration: ajouter study_id à patients si manquant
-        try:
-            cursor.execute("SELECT study_id FROM patients LIMIT 1")
-        except sqlite3.OperationalError:
-            cursor.execute("ALTER TABLE patients ADD COLUMN study_id INTEGER")
+        migrations = {
+            "patients": [
+                ("study_id", "INTEGER"),
+            ],
+            "studies": [
+                ("study_number", "TEXT"),
+                ("study_name", "TEXT"),
+                ("eu_ct_number", "TEXT"),
+                ("nct_number", "TEXT"),
+                ("investigational_product", "TEXT"),
+                ("comparator", "TEXT"),
+                ("pathology", "TEXT"),
+                ("study_title", "TEXT"),
+                ("protocol_version", "TEXT"),
+            ],
+            "study_sites": [
+                ("principal_investigator", "TEXT"),
+                ("first_patient_date", "DATE"),
+            ],
+            "adverse_events": [
+                ("ae_term", "TEXT"),
+                ("notes", "TEXT"),
+            ],
+            "queries": [
+                ("field_name", "TEXT"),
+                ("priority", "TEXT DEFAULT 'Medium'"),
+                ("response", "TEXT"),
+                ("updated_at", "TIMESTAMP"),
+            ],
+        }
+
+        for table, columns in migrations.items():
+            existing = self._get_columns(cursor, table)
+            for col_name, col_type in columns:
+                base_name = col_name.split()[0]  # ignorer DEFAULT si présent
+                if base_name not in existing:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
             conn.commit()
-
-        # Migration: ajouter les nouvelles colonnes à studies si manquantes
-        studies_columns = [
-            ("study_number", "TEXT"),
-            ("study_name", "TEXT"),
-            ("eu_ct_number", "TEXT"),
-            ("nct_number", "TEXT"),
-            ("investigational_product", "TEXT"),
-            ("comparator", "TEXT"),
-            ("pathology", "TEXT"),
-            ("study_title", "TEXT"),
-            ("protocol_version", "TEXT"),
-        ]
-
-        for col_name, col_type in studies_columns:
-            try:
-                cursor.execute(f"SELECT {col_name} FROM studies LIMIT 1")
-            except sqlite3.OperationalError:
-                cursor.execute(f"ALTER TABLE studies ADD COLUMN {col_name} {col_type}")
-                conn.commit()
-
-        # Migration: ajouter les nouvelles colonnes à study_sites si manquantes
-        study_sites_columns = [
-            ("principal_investigator", "TEXT"),
-            ("first_patient_date", "DATE"),
-        ]
-
-        for col_name, col_type in study_sites_columns:
-            try:
-                cursor.execute(f"SELECT {col_name} FROM study_sites LIMIT 1")
-            except sqlite3.OperationalError:
-                cursor.execute(f"ALTER TABLE study_sites ADD COLUMN {col_name} {col_type}")
-                conn.commit()
-
-        # Migration: ajouter les nouvelles colonnes à adverse_events si manquantes
-        ae_columns = [
-            ("ae_term", "TEXT"),
-            ("notes", "TEXT"),
-        ]
-
-        for col_name, col_type in ae_columns:
-            try:
-                cursor.execute(f"SELECT {col_name} FROM adverse_events LIMIT 1")
-            except sqlite3.OperationalError:
-                cursor.execute(f"ALTER TABLE adverse_events ADD COLUMN {col_name} {col_type}")
-                conn.commit()
-
-        # Migration: ajouter les nouvelles colonnes à queries si manquantes
-        queries_columns = [
-            ("field_name", "TEXT"),
-            ("priority", "TEXT DEFAULT 'Medium'"),
-            ("response", "TEXT"),
-            ("updated_at", "TIMESTAMP"),
-        ]
-
-        for col_name, col_type in queries_columns:
-            try:
-                cursor.execute(f"SELECT {col_name} FROM queries LIMIT 1")
-            except sqlite3.OperationalError:
-                cursor.execute(f"ALTER TABLE queries ADD COLUMN {col_name} {col_type}")
-                conn.commit()
 
     def init_default_data(self, num_visits: int = 25) -> None:
         """Initialise les données par défaut."""

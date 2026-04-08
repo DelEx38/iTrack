@@ -3,6 +3,7 @@
 Gestion des queries (data management).
 """
 
+import asyncio
 import flet as ft
 from typing import Optional, Dict, List
 from src.theme import AppColors, Typography, Spacing, Radius
@@ -314,17 +315,19 @@ class QueriesView(ft.Container):
             StatChip("High Priority", high_priority, AppColors.ERROR),
         ])
 
-    def _on_search(self, e):
+    async def _on_search(self, e):
+        term = e.data
+        await asyncio.sleep(0.25)
+        if self.search_field.value != term:
+            return
         self._load_queries(search=self.search_field.value, status_filter=self.status_filter.value)
         if self.page:
-            self.queries_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _on_filter_change(self, e):
         self._load_queries(search=self.search_field.value, status_filter=e.data)
         if self.page:
-            self.queries_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _add_query(self, e):
         patients = self.patient_queries.get_all()
@@ -334,8 +337,7 @@ class QueriesView(ft.Container):
                 self.query_queries.create(**data)
                 self._load_queries(self.search_field.value, self.status_filter.value)
                 if self.page:
-                    self.queries_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -350,8 +352,7 @@ class QueriesView(ft.Container):
                 self.query_queries.update(data["id"], **{k: v for k, v in data.items() if k != "id"})
                 self._load_queries(self.search_field.value, self.status_filter.value)
                 if self.page:
-                    self.queries_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -364,8 +365,7 @@ class QueriesView(ft.Container):
                 self.query_queries.delete(query["id"])
                 self._load_queries(self.search_field.value, self.status_filter.value)
                 if self.page:
-                    self.queries_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 

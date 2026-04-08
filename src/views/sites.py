@@ -3,6 +3,7 @@
 Gestion des sites / centres investigateurs.
 """
 
+import asyncio
 import flet as ft
 from typing import Optional, Dict, List
 from src.theme import AppColors, Typography, Spacing, Radius
@@ -302,17 +303,19 @@ class SitesView(ft.Container):
             StatChip("Closed", str(closed), AppColors.ERROR),
         ]
 
-    def _on_search(self, e):
+    async def _on_search(self, e):
+        term = e.data
+        await asyncio.sleep(0.25)
+        if self.search_field.value != term:
+            return
         self._load_sites(search=self.search_field.value, status_filter=self.status_filter.value)
         if self.page:
-            self.sites_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _on_filter_change(self, e):
         self._load_sites(search=self.search_field.value, status_filter=e.data)
         if self.page:
-            self.sites_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _add_site(self, e):
         def on_save(data):
@@ -327,8 +330,7 @@ class SitesView(ft.Container):
                 )
                 self._load_sites(self.search_field.value, self.status_filter.value)
                 if self.page:
-                    self.sites_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -342,8 +344,7 @@ class SitesView(ft.Container):
                 self.db.update_study_site(site["id"], **data["study_site"])
                 self._load_sites(self.search_field.value, self.status_filter.value)
                 if self.page:
-                    self.sites_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -370,8 +371,7 @@ class SitesView(ft.Container):
                 self.db.remove_site_from_study(self.current_study["id"], site["site_id"])
                 self._load_sites(self.search_field.value, self.status_filter.value)
                 if self.page:
-                    self.sites_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 

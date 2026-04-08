@@ -94,7 +94,7 @@ class ConsentDialog(ft.AlertDialog):
         config_id = int(e.data)
         self._load_versions(config_id)
         if self.page:
-            self.version_dropdown.update()
+            self.page.update()
 
     def _load_versions(self, config_id: int):
         config = next((c for c in self.consent_configs if c["id"] == config_id), None)
@@ -233,8 +233,7 @@ class DocumentsView(ft.Container):
         patient_id = int(e.data)
         self._load_consents(patient_id)
         if self.page:
-            self.consents_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _load_consents(self, patient_id: int):
         """Charge les consentements d'un patient."""
@@ -309,8 +308,7 @@ class DocumentsView(ft.Container):
                 self.consent_queries.create(**data)
                 self._load_consents(patient_id)
                 if self.page:
-                    self.consents_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -327,8 +325,7 @@ class DocumentsView(ft.Container):
                 self.consent_queries.update(data["id"], **{k: v for k, v in data.items() if k != "id"})
                 self._load_consents(patient_id)
                 if self.page:
-                    self.consents_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -343,8 +340,7 @@ class DocumentsView(ft.Container):
                 self.consent_queries.delete(consent["id"])
                 self._load_consents(patient_id)
                 if self.page:
-                    self.consents_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 

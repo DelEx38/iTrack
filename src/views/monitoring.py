@@ -3,6 +3,7 @@
 Gestion du monitoring.
 """
 
+import asyncio
 import flet as ft
 from typing import Optional, Dict, List
 from datetime import datetime
@@ -316,17 +317,19 @@ class MonitoringView(ft.Container):
             StatChip("Pending", pending, AppColors.WARNING),
         ])
 
-    def _on_search(self, e):
+    async def _on_search(self, e):
+        term = e.data
+        await asyncio.sleep(0.25)
+        if self.search_field.value != term:
+            return
         self._load_entries(search=self.search_field.value, completed_filter=self.completed_filter.value)
         if self.page:
-            self.monitoring_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _on_filter_change(self, e):
         self._load_entries(search=self.search_field.value, completed_filter=e.data)
         if self.page:
-            self.monitoring_table.update()
-            self.stats_row.update()
+            self.page.update()
 
     def _add_entry(self, e):
         patients = self.patient_queries.get_all()
@@ -336,8 +339,7 @@ class MonitoringView(ft.Container):
                 self.monitoring_queries.create(**data)
                 self._load_entries(self.search_field.value, self.completed_filter.value)
                 if self.page:
-                    self.monitoring_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -352,8 +354,7 @@ class MonitoringView(ft.Container):
                 self.monitoring_queries.update(data["id"], **{k: v for k, v in data.items() if k != "id"})
                 self._load_entries(self.search_field.value, self.completed_filter.value)
                 if self.page:
-                    self.monitoring_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
@@ -366,8 +367,7 @@ class MonitoringView(ft.Container):
                 self.monitoring_queries.delete(entry["id"])
                 self._load_entries(self.search_field.value, self.completed_filter.value)
                 if self.page:
-                    self.monitoring_table.update()
-                    self.stats_row.update()
+                    self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
