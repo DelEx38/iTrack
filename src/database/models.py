@@ -3,16 +3,37 @@ Modèles de base de données SQLite pour le suivi d'étude clinique.
 """
 
 import sqlite3
+import sys
 from pathlib import Path
 from datetime import datetime, date
 from typing import Optional
 
 
+def get_app_path() -> Path:
+    """
+    Retourne le chemin du dossier de l'application.
+
+    Compatible PyInstaller : utilise le dossier de l'exécutable.
+    En développement : utilise le dossier du projet.
+    """
+    if getattr(sys, 'frozen', False):
+        # Mode PyInstaller : à côté de l'exécutable
+        return Path(sys.executable).parent
+    else:
+        # Mode développement : dossier du projet
+        return Path(__file__).parent.parent.parent
+
+
 class Database:
     """Gestionnaire de connexion à la base de données SQLite."""
 
-    def __init__(self, db_path: str = "data/etude.db"):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            # Chemin par défaut : data/etude.db à côté de l'application
+            app_path = get_app_path()
+            self.db_path = app_path / "data" / "etude.db"
+        else:
+            self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.connection: Optional[sqlite3.Connection] = None
 

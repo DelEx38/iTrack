@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 Carte de statistique réutilisable.
 """
 
 import flet as ft
+from src.theme import AppColors, Typography, Spacing, Radius
 
 
 class StatCard(ft.Container):
@@ -12,19 +14,18 @@ class StatCard(ft.Container):
         self,
         title: str,
         value: str = "0",
-        color: str = "#3a7ebf",
+        color: str = AppColors.PRIMARY,
         icon: str = None,
     ):
         self.value_text = ft.Text(
             value,
-            size=36,
-            weight=ft.FontWeight.BOLD,
+            **Typography.STAT_VALUE,
             color=color,
         )
         self.title_text = ft.Text(
             title,
-            size=14,
-            color=ft.Colors.GREY_500,
+            **Typography.STAT_LABEL,
+            color=AppColors.TEXT_SECONDARY,
         )
 
         row_controls = [self.value_text]
@@ -40,14 +41,14 @@ class StatCard(ft.Container):
                 self.title_text,
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=5,
+            spacing=Spacing.XS,
         )
 
         super().__init__(
             content=content,
-            padding=20,
-            border_radius=10,
-            bgcolor=ft.Colors.SURFACE_CONTAINER,
+            padding=Spacing.CARD_PADDING,
+            border_radius=Radius.CARD,
+            bgcolor=AppColors.SURFACE_VARIANT,
             expand=True,
         )
 
