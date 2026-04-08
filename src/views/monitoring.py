@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Gestion du monitoring.
 """
@@ -5,6 +6,8 @@ Gestion du monitoring.
 import flet as ft
 from typing import Optional, Dict, List
 from datetime import datetime
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatusBadge, StatChip, ConfirmDialog
 
 
 class MonitoringEntryDialog(ft.AlertDialog):
@@ -25,6 +28,7 @@ class MonitoringEntryDialog(ft.AlertDialog):
             ],
             value=str(entry.get("patient_id")) if entry else None,
             width=250,
+            border_radius=Radius.INPUT,
         )
 
         # Date
@@ -32,6 +36,7 @@ class MonitoringEntryDialog(ft.AlertDialog):
             label="Monitoring Date (YYYY-MM-DD) *",
             value=str(entry.get("monitoring_date", "")) if entry else datetime.now().strftime("%Y-%m-%d"),
             autofocus=True,
+            border_radius=Radius.INPUT,
         )
 
         # Type
@@ -40,6 +45,7 @@ class MonitoringEntryDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=t, text=t) for t in self.TYPES],
             value=entry.get("monitoring_type", "Source Data Verification") if entry else "Source Data Verification",
             width=300,
+            border_radius=Radius.INPUT,
         )
 
         # Findings
@@ -49,6 +55,7 @@ class MonitoringEntryDialog(ft.AlertDialog):
             multiline=True,
             min_lines=3,
             max_lines=6,
+            border_radius=Radius.INPUT,
         )
 
         # Actions
@@ -58,6 +65,7 @@ class MonitoringEntryDialog(ft.AlertDialog):
             multiline=True,
             min_lines=2,
             max_lines=4,
+            border_radius=Radius.INPUT,
         )
 
         # Complété
@@ -75,17 +83,22 @@ class MonitoringEntryDialog(ft.AlertDialog):
                 self.actions_field,
                 self.completed_switch,
             ],
-            spacing=15,
+            spacing=Spacing.MD,
             tight=True,
             width=450,
         )
 
         super().__init__(
-            title=ft.Text("Edit Monitoring Entry" if entry else "New Monitoring Entry"),
+            title=ft.Text("Edit Monitoring Entry" if entry else "New Monitoring Entry", **Typography.H4),
             content=content,
             actions=[
                 ft.TextButton(content=ft.Text("Cancel"), on_click=self._cancel),
-                ft.Button(content=ft.Text("Save"), on_click=self._save),
+                ft.Button(
+                    content=ft.Text("Save"),
+                    on_click=self._save,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
             ],
         )
 
@@ -126,11 +139,11 @@ class MonitoringView(ft.Container):
     """Vue de gestion du monitoring."""
 
     TYPE_COLORS = {
-        "Source Data Verification": "#5bc0de",
-        "Query Resolution": "#f0ad4e",
-        "Protocol Review": "#5cb85c",
-        "Safety Review": "#d9534f",
-        "Other": "#777777",
+        "Source Data Verification": AppColors.INFO,
+        "Query Resolution": AppColors.WARNING,
+        "Protocol Review": AppColors.SUCCESS,
+        "Safety Review": AppColors.ERROR,
+        "Other": AppColors.NEUTRAL,
     }
 
     def __init__(self, patient_queries, monitoring_queries):
@@ -138,17 +151,17 @@ class MonitoringView(ft.Container):
         self.monitoring_queries = monitoring_queries
 
         # Titre
-        title = ft.Text("Monitoring", size=24, weight=ft.FontWeight.BOLD)
+        title = ft.Text("Monitoring", **Typography.H2)
 
         # Bouton ajouter
         add_btn = ft.Button(
             content=ft.Row(
                 [ft.Icon(ft.Icons.ADD, size=18), ft.Text("Add Entry")],
-                spacing=8,
+                spacing=Spacing.XS,
             ),
             on_click=self._add_entry,
-            bgcolor=ft.Colors.PRIMARY,
-            color=ft.Colors.ON_PRIMARY,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
         )
 
         # Recherche
@@ -157,6 +170,7 @@ class MonitoringView(ft.Container):
             prefix_icon=ft.Icons.SEARCH,
             width=250,
             on_change=self._on_search,
+            border_radius=Radius.INPUT,
         )
 
         # Filtre complété
@@ -170,6 +184,7 @@ class MonitoringView(ft.Container):
             value="All",
             width=150,
             on_select=self._on_filter_change,
+            border_radius=Radius.INPUT,
         )
 
         header = ft.Row(
@@ -177,37 +192,37 @@ class MonitoringView(ft.Container):
         )
 
         # Stats
-        self.stats_row = ft.Row(spacing=10)
+        self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau
         self.monitoring_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Patient", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Date", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Type", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Findings", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Status", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actions", weight=ft.FontWeight.BOLD)),
+                ft.DataColumn(ft.Text("Patient", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Date", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Type", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Findings", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            heading_row_color=ft.Colors.SURFACE_CONTAINER,
+            border=ft.border.all(1, AppColors.BORDER),
+            border_radius=Radius.TABLE,
+            heading_row_color=AppColors.SURFACE_VARIANT,
         )
 
         content = ft.Column(
             [
                 header,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 self.stats_row,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Container(content=self.monitoring_table, expand=True),
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         self._load_entries()
 
@@ -244,23 +259,24 @@ class MonitoringView(ft.Container):
             if len(findings) > 40:
                 findings = findings[:40] + "..."
 
+            # Badge type
+            type_badge = ft.Container(
+                content=ft.Text(mon_type, **Typography.BADGE, color=AppColors.TEXT_ON_PRIMARY),
+                bgcolor=self.TYPE_COLORS.get(mon_type, AppColors.NEUTRAL),
+                border_radius=Radius.BADGE,
+                padding=Spacing.badge(),
+            )
+
             row = ft.DataRow(
                 cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", "?"))),
-                    ft.DataCell(ft.Text(str(entry.get("monitoring_date", "-")))),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(mon_type, color=ft.Colors.WHITE, size=12),
-                            bgcolor=self.TYPE_COLORS.get(mon_type, "#777"),
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
-                    ft.DataCell(ft.Text(findings)),
+                    ft.DataCell(ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(str(entry.get("monitoring_date", "-")), **Typography.TABLE_CELL)),
+                    ft.DataCell(type_badge),
+                    ft.DataCell(ft.Text(findings, **Typography.TABLE_CELL)),
                     ft.DataCell(
                         ft.Icon(
                             ft.Icons.CHECK_CIRCLE if is_completed else ft.Icons.PENDING,
-                            color="#5cb85c" if is_completed else "#f0ad4e",
+                            color=AppColors.SUCCESS if is_completed else AppColors.WARNING,
                             size=20,
                         )
                     ),
@@ -275,7 +291,7 @@ class MonitoringView(ft.Container):
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE,
                                     icon_size=18,
-                                    icon_color=ft.Colors.ERROR,
+                                    icon_color=AppColors.ERROR,
                                     on_click=lambda e, en=entry: self._delete_entry(en),
                                 ),
                             ],
@@ -294,28 +310,11 @@ class MonitoringView(ft.Container):
         completed = sum(1 for e in entries if e.get("is_completed"))
         pending = total - completed
 
-        by_type = {}
-        for entry in entries:
-            t = entry.get("monitoring_type", "Other")
-            by_type[t] = by_type.get(t, 0) + 1
-
-        stats = [
-            ("Total", total, ft.Colors.PRIMARY),
-            ("Completed", completed, "#5cb85c"),
-            ("Pending", pending, "#f0ad4e"),
-        ]
-
-        for label, value, color in stats:
-            chip = ft.Container(
-                content=ft.Row(
-                    [ft.Text(label, size=12), ft.Text(str(value), weight=ft.FontWeight.BOLD, color=color)],
-                    spacing=5,
-                ),
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                border_radius=20,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            )
-            self.stats_row.controls.append(chip)
+        self.stats_row.controls.extend([
+            StatChip("Total", total, AppColors.INFO),
+            StatChip("Completed", completed, AppColors.SUCCESS),
+            StatChip("Pending", pending, AppColors.WARNING),
+        ])
 
     def _on_search(self, e):
         self._load_entries(search=self.search_field.value, completed_filter=self.completed_filter.value)
@@ -362,28 +361,20 @@ class MonitoringView(ft.Container):
         self.page.open(dialog)
 
     def _delete_entry(self, entry: Dict):
-        def confirm(e):
+        def on_confirm():
             try:
                 self.monitoring_queries.delete(entry["id"])
                 self._load_entries(self.search_field.value, self.completed_filter.value)
                 if self.page:
                     self.monitoring_table.update()
                     self.stats_row.update()
-                dialog.open = False
-                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
-        def cancel(e):
-            dialog.open = False
-            self.page.update()
-
-        dialog = ft.AlertDialog(
-            title=ft.Text("Delete Entry"),
-            content=ft.Text("Delete this monitoring entry?"),
-            actions=[
-                ft.TextButton(content=ft.Text("Cancel"), on_click=cancel),
-                ft.Button(content=ft.Text("Delete"), on_click=confirm, bgcolor=ft.Colors.ERROR),
-            ],
-        )
-        self.page.open(dialog)
+        ConfirmDialog(
+            title="Delete Entry",
+            message="Delete this monitoring entry?",
+            confirm_text="Delete",
+            on_confirm=on_confirm,
+            danger=True,
+        ).show(self.page)

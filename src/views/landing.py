@@ -1,20 +1,16 @@
+# -*- coding: utf-8 -*-
 """
 Page d'accueil avec liste des études.
 """
 
 import flet as ft
 from typing import Callable, Dict, List
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatusBadge
 
 
 class StudyCard(ft.Container):
     """Carte représentant une étude."""
-
-    PHASE_COLORS = {
-        "Phase I": "#2196F3",
-        "Phase II": "#4CAF50",
-        "Phase III": "#FF9800",
-        "Phase IV": "#F44336",
-    }
 
     def __init__(self, study: Dict, on_click: Callable[[Dict], None], db):
         self.study = study
@@ -26,33 +22,25 @@ class StudyCard(ft.Container):
 
         # Badge phase
         phase = study.get("phase", "")
-        phase_color = self.PHASE_COLORS.get(phase, "#9E9E9E")
-
-        phase_badge = ft.Container(
-            content=ft.Text(phase or "N/A", size=12, color=ft.Colors.WHITE),
-            bgcolor=phase_color,
-            border_radius=4,
-            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-        ) if phase else ft.Container()
+        phase_badge = StatusBadge.phase(phase) if phase else ft.Container()
 
         # Numéro d'étude
         study_number = ft.Text(
             study.get("study_number", ""),
-            size=12,
-            color=ft.Colors.GREY_500,
+            **Typography.BODY_SMALL,
+            color=AppColors.TEXT_SECONDARY,
         )
 
         # Nom d'étude
         study_name = ft.Text(
             study.get("study_name", "Unnamed Study"),
-            size=18,
-            weight=ft.FontWeight.BOLD,
-            color=ft.Colors.PRIMARY,
+            **Typography.H4,
+            color=AppColors.PRIMARY,
         )
 
         # Sponsor et pathologie
-        sponsor = ft.Text(study.get("sponsor", ""), size=12, color=ft.Colors.GREY_600)
-        pathology = ft.Text(study.get("pathology", ""), size=12, color=ft.Colors.GREY_600, italic=True)
+        sponsor = ft.Text(study.get("sponsor", ""), **Typography.BODY_SMALL, color=AppColors.TEXT_SECONDARY)
+        pathology = ft.Text(study.get("pathology", ""), **Typography.BODY_SMALL, color=AppColors.TEXT_SECONDARY, italic=True)
 
         # Stats
         stats_row = ft.Row(
@@ -61,27 +49,27 @@ class StudyCard(ft.Container):
                 self._stat_item(ft.Icons.CALENDAR_TODAY, str(stats["visits"]), "Visits"),
                 self._stat_item(ft.Icons.WARNING, str(stats["ae"]), "AE"),
             ],
-            spacing=20,
+            spacing=Spacing.LG,
         )
 
         content = ft.Column(
             [
                 ft.Row([phase_badge, ft.Container(expand=True), study_number]),
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 study_name,
                 sponsor,
                 pathology,
-                ft.Container(height=15),
+                ft.Container(height=Spacing.MD),
                 stats_row,
             ],
-            spacing=5,
+            spacing=Spacing.XS,
         )
 
         super().__init__(
             content=content,
-            padding=20,
-            border_radius=10,
-            bgcolor=ft.Colors.SURFACE_CONTAINER,
+            padding=Spacing.CARD_PADDING,
+            border_radius=Radius.CARD,
+            bgcolor=AppColors.SURFACE_VARIANT,
             on_click=self._handle_click,
             on_hover=self._handle_hover,
             width=300,
@@ -91,13 +79,16 @@ class StudyCard(ft.Container):
         return ft.Column(
             [
                 ft.Row(
-                    [ft.Icon(icon, size=16, color=ft.Colors.GREY_500), ft.Text(value, weight=ft.FontWeight.BOLD)],
-                    spacing=5,
+                    [
+                        ft.Icon(icon, size=16, color=AppColors.TEXT_SECONDARY),
+                        ft.Text(value, size=14, weight=ft.FontWeight.BOLD),
+                    ],
+                    spacing=Spacing.XS,
                 ),
-                ft.Text(label, size=10, color=ft.Colors.GREY_500),
+                ft.Text(label, **Typography.CAPTION, color=AppColors.TEXT_SECONDARY),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=2,
+            spacing=Spacing.XXXS,
         )
 
     def _get_study_stats(self) -> Dict:
@@ -126,7 +117,7 @@ class StudyCard(ft.Container):
         self._on_click_callback(self.study)
 
     def _handle_hover(self, e):
-        self.bgcolor = ft.Colors.SECONDARY_CONTAINER if e.data == "true" else ft.Colors.SURFACE_CONTAINER
+        self.bgcolor = AppColors.SURFACE_ELEVATED if e.data == "true" else AppColors.SURFACE_VARIANT
         if self.page:
             self.update()
 
@@ -145,14 +136,14 @@ class LandingView(ft.Container):
         self.on_new_study = on_new_study
 
         # Titre
-        title = ft.Text("Clinical Study Tracker", size=32, weight=ft.FontWeight.BOLD)
-        subtitle = ft.Text("Select a study to continue", size=16, color=ft.Colors.GREY_500)
+        title = ft.Text("Clinical Study Tracker", **Typography.H1)
+        subtitle = ft.Text("Select a study to continue", **Typography.BODY_LARGE, color=AppColors.TEXT_SECONDARY)
 
         # Barre de recherche
         self.search_field = ft.TextField(
             hint_text="Search studies...",
             prefix_icon=ft.Icons.SEARCH,
-            border_radius=10,
+            border_radius=Radius.INPUT,
             width=400,
             on_change=self._on_search,
         )
@@ -162,19 +153,19 @@ class LandingView(ft.Container):
             content=ft.Row(
                 [ft.Icon(ft.Icons.ADD, size=18), ft.Text("+ New Study")],
                 alignment=ft.MainAxisAlignment.CENTER,
-                spacing=8,
+                spacing=Spacing.XS,
             ),
             on_click=lambda e: self.on_new_study(),
-            bgcolor=ft.Colors.PRIMARY,
-            color=ft.Colors.ON_PRIMARY,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
         )
 
         header = ft.Column(
             [
                 ft.Row([title], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Row([subtitle], alignment=ft.MainAxisAlignment.CENTER),
-                ft.Container(height=20),
-                ft.Row([self.search_field, new_study_btn], alignment=ft.MainAxisAlignment.CENTER, spacing=20),
+                ft.Container(height=Spacing.LG),
+                ft.Row([self.search_field, new_study_btn], alignment=ft.MainAxisAlignment.CENTER, spacing=Spacing.LG),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
@@ -182,16 +173,16 @@ class LandingView(ft.Container):
         # Grille des études
         self.studies_grid = ft.Row(
             wrap=True,
-            spacing=20,
-            run_spacing=20,
+            spacing=Spacing.LG,
+            run_spacing=Spacing.LG,
             alignment=ft.MainAxisAlignment.CENTER,
         )
 
         content = ft.Column(
             [
-                ft.Container(height=40),
+                ft.Container(height=Spacing.XXL),
                 header,
-                ft.Container(height=40),
+                ft.Container(height=Spacing.XXL),
                 ft.Container(content=self.studies_grid, expand=True),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -199,7 +190,7 @@ class LandingView(ft.Container):
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         # Charger les études
         self._load_studies()
@@ -221,7 +212,12 @@ class LandingView(ft.Container):
 
         if not studies:
             self.studies_grid.controls.append(
-                ft.Text("No studies found. Create your first study!", size=16, color=ft.Colors.GREY_500, italic=True)
+                ft.Text(
+                    "No studies found. Create your first study!",
+                    **Typography.BODY_LARGE,
+                    color=AppColors.TEXT_DISABLED,
+                    italic=True,
+                )
             )
         else:
             for study in studies:

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Gestion des événements indésirables (EI/EIG).
 """
@@ -5,6 +6,8 @@ Gestion des événements indésirables (EI/EIG).
 import flet as ft
 from typing import Optional, Dict, List
 from datetime import datetime
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatusBadge, StatChip, ConfirmDialog
 
 
 class AEDialog(ft.AlertDialog):
@@ -27,6 +30,7 @@ class AEDialog(ft.AlertDialog):
             ],
             value=str(ae.get("patient_id")) if ae else None,
             width=250,
+            border_radius=Radius.INPUT,
         )
 
         # Terme
@@ -34,16 +38,19 @@ class AEDialog(ft.AlertDialog):
             label="AE Term *",
             value=ae.get("ae_term", "") if ae else "",
             autofocus=True,
+            border_radius=Radius.INPUT,
         )
 
         # Dates
         self.start_date_field = ft.TextField(
             label="Start Date (YYYY-MM-DD) *",
             value=str(ae.get("start_date", "")) if ae else "",
+            border_radius=Radius.INPUT,
         )
         self.end_date_field = ft.TextField(
             label="End Date (YYYY-MM-DD)",
             value=str(ae.get("end_date", "") or "") if ae else "",
+            border_radius=Radius.INPUT,
         )
 
         # Sévérité
@@ -52,6 +59,7 @@ class AEDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=s, text=s) for s in self.SEVERITIES],
             value=ae.get("severity", "Mild") if ae else "Mild",
             width=150,
+            border_radius=Radius.INPUT,
         )
 
         # SAE
@@ -64,6 +72,7 @@ class AEDialog(ft.AlertDialog):
         self.reporting_date_field = ft.TextField(
             label="SAE Reporting Date",
             value=str(ae.get("reporting_date", "") or "") if ae else "",
+            border_radius=Radius.INPUT,
         )
 
         # Outcome
@@ -72,6 +81,7 @@ class AEDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=o, text=o) for o in self.OUTCOMES],
             value=ae.get("outcome", "Recovering") if ae else "Recovering",
             width=180,
+            border_radius=Radius.INPUT,
         )
 
         # Causalité
@@ -80,6 +90,7 @@ class AEDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=c, text=c) for c in self.CAUSALITIES],
             value=ae.get("causality", "Unknown") if ae else "Unknown",
             width=180,
+            border_radius=Radius.INPUT,
         )
 
         # Notes
@@ -89,28 +100,34 @@ class AEDialog(ft.AlertDialog):
             multiline=True,
             min_lines=2,
             max_lines=4,
+            border_radius=Radius.INPUT,
         )
 
         content = ft.Column(
             [
                 self.patient_dropdown,
                 self.term_field,
-                ft.Row([self.start_date_field, self.end_date_field], spacing=10),
-                ft.Row([self.severity_dropdown, self.outcome_dropdown, self.causality_dropdown], spacing=10),
-                ft.Row([self.sae_switch, self.reporting_date_field], spacing=20),
+                ft.Row([self.start_date_field, self.end_date_field], spacing=Spacing.SM),
+                ft.Row([self.severity_dropdown, self.outcome_dropdown, self.causality_dropdown], spacing=Spacing.SM),
+                ft.Row([self.sae_switch, self.reporting_date_field], spacing=Spacing.LG),
                 self.notes_field,
             ],
-            spacing=15,
+            spacing=Spacing.MD,
             tight=True,
             width=500,
         )
 
         super().__init__(
-            title=ft.Text("Edit Adverse Event" if ae else "New Adverse Event"),
+            title=ft.Text("Edit Adverse Event" if ae else "New Adverse Event", **Typography.H4),
             content=content,
             actions=[
                 ft.TextButton(content=ft.Text("Cancel"), on_click=self._cancel),
-                ft.Button(content=ft.Text("Save"), on_click=self._save),
+                ft.Button(
+                    content=ft.Text("Save"),
+                    on_click=self._save,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
             ],
         )
 
@@ -157,36 +174,24 @@ class AEDialog(ft.AlertDialog):
 class AdverseEventsView(ft.Container):
     """Vue de gestion des événements indésirables."""
 
-    SEVERITY_COLORS = {
-        "Mild": "#5cb85c",
-        "Moderate": "#f0ad4e",
-        "Severe": "#d9534f",
-    }
-
-    OUTCOME_COLORS = {
-        "Recovered": "#5cb85c",
-        "Recovering": "#5bc0de",
-        "Not Recovered": "#f0ad4e",
-        "Fatal": "#d9534f",
-        "Unknown": "#777777",
-    }
+    OUTCOMES = ["Recovered", "Recovering", "Not Recovered", "Fatal", "Unknown"]
 
     def __init__(self, patient_queries, ae_queries):
         self.patient_queries = patient_queries
         self.ae_queries = ae_queries
 
         # Titre
-        title = ft.Text("Adverse Events", size=24, weight=ft.FontWeight.BOLD)
+        title = ft.Text("Adverse Events", **Typography.H2)
 
         # Bouton ajouter
         add_btn = ft.Button(
             content=ft.Row(
                 [ft.Icon(ft.Icons.ADD, size=18), ft.Text("Add AE")],
-                spacing=8,
+                spacing=Spacing.XS,
             ),
             on_click=self._add_ae,
-            bgcolor=ft.Colors.PRIMARY,
-            color=ft.Colors.ON_PRIMARY,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
         )
 
         # Recherche
@@ -195,16 +200,18 @@ class AdverseEventsView(ft.Container):
             prefix_icon=ft.Icons.SEARCH,
             width=250,
             on_change=self._on_search,
+            border_radius=Radius.INPUT,
         )
 
         # Filtre outcome
         self.outcome_filter = ft.Dropdown(
             label="Outcome",
             options=[ft.DropdownOption(key="All", text="All")] +
-                    [ft.DropdownOption(key=o, text=o) for o in self.OUTCOME_COLORS.keys()],
+                    [ft.DropdownOption(key=o, text=o) for o in self.OUTCOMES],
             value="All",
             width=150,
             on_select=self._on_filter_change,
+            border_radius=Radius.INPUT,
         )
 
         header = ft.Row(
@@ -212,38 +219,38 @@ class AdverseEventsView(ft.Container):
         )
 
         # Stats
-        self.stats_row = ft.Row(spacing=10)
+        self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau
         self.ae_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Patient", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("AE Term", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Start", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Severity", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("SAE", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Outcome", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actions", weight=ft.FontWeight.BOLD)),
+                ft.DataColumn(ft.Text("Patient", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("AE Term", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Start", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Severity", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("SAE", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Outcome", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            heading_row_color=ft.Colors.SURFACE_CONTAINER,
+            border=ft.border.all(1, AppColors.BORDER),
+            border_radius=Radius.TABLE,
+            heading_row_color=AppColors.SURFACE_VARIANT,
         )
 
         content = ft.Column(
             [
                 header,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 self.stats_row,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Container(content=self.ae_table, expand=True),
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         self._load_ae()
 
@@ -277,8 +284,10 @@ class AdverseEventsView(ft.Container):
 
             # Indicateur délai SAE
             sae_indicator = "-"
+            sae_color = None
             if is_serious:
                 sae_indicator = "SAE"
+                sae_color = AppColors.ERROR
                 if ae.get("reporting_date") and ae.get("start_date"):
                     try:
                         start = datetime.strptime(str(ae["start_date"]), "%Y-%m-%d")
@@ -286,39 +295,28 @@ class AdverseEventsView(ft.Container):
                         delta = (reported - start).days
                         if delta <= 1:
                             sae_indicator = "SAE (<24h)"
+                            sae_color = AppColors.SUCCESS
                         else:
                             sae_indicator = f"SAE (+{delta}d)"
+                            sae_color = AppColors.ERROR
                     except Exception:
                         pass
 
             row = ft.DataRow(
                 cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", "?"))),
-                    ft.DataCell(ft.Text(ae.get("ae_term", ""))),
-                    ft.DataCell(ft.Text(str(ae.get("start_date", "-")))),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(severity, color=ft.Colors.WHITE, size=12),
-                            bgcolor=self.SEVERITY_COLORS.get(severity, "#777"),
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
+                    ft.DataCell(ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(ae.get("ae_term", ""), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(str(ae.get("start_date", "-")), **Typography.TABLE_CELL)),
+                    ft.DataCell(StatusBadge.ae_severity(severity)),
                     ft.DataCell(
                         ft.Text(
                             sae_indicator,
-                            color="#d9534f" if is_serious and "+d" in sae_indicator else None,
+                            **Typography.TABLE_CELL,
+                            color=sae_color,
                             weight=ft.FontWeight.BOLD if is_serious else None,
                         )
                     ),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(outcome, color=ft.Colors.WHITE, size=12),
-                            bgcolor=self.OUTCOME_COLORS.get(outcome, "#777"),
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
+                    ft.DataCell(StatusBadge.ae_outcome(outcome)),
                     ft.DataCell(
                         ft.Row(
                             [
@@ -330,7 +328,7 @@ class AdverseEventsView(ft.Container):
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE,
                                     icon_size=18,
-                                    icon_color=ft.Colors.ERROR,
+                                    icon_color=AppColors.ERROR,
                                     on_click=lambda e, a=ae: self._delete_ae(a),
                                 ),
                             ],
@@ -351,25 +349,13 @@ class AdverseEventsView(ft.Container):
         recovered = sum(1 for ae in ae_list if ae.get("outcome") == "Recovered")
         fatal = sum(1 for ae in ae_list if ae.get("outcome") == "Fatal")
 
-        stats = [
-            ("Total", total, ft.Colors.PRIMARY),
-            ("SAE", sae, "#d9534f"),
-            ("Ongoing", ongoing, "#f0ad4e"),
-            ("Recovered", recovered, "#5cb85c"),
-            ("Fatal", fatal, "#d9534f"),
-        ]
-
-        for label, value, color in stats:
-            chip = ft.Container(
-                content=ft.Row(
-                    [ft.Text(label, size=12), ft.Text(str(value), weight=ft.FontWeight.BOLD, color=color)],
-                    spacing=5,
-                ),
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                border_radius=20,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            )
-            self.stats_row.controls.append(chip)
+        self.stats_row.controls.extend([
+            StatChip("Total", total, AppColors.INFO),
+            StatChip("SAE", sae, AppColors.ERROR),
+            StatChip("Ongoing", ongoing, AppColors.WARNING),
+            StatChip("Recovered", recovered, AppColors.SUCCESS),
+            StatChip("Fatal", fatal, AppColors.ERROR),
+        ])
 
     def _on_search(self, e):
         self._load_ae(search=self.search_field.value, outcome_filter=self.outcome_filter.value)
@@ -416,28 +402,20 @@ class AdverseEventsView(ft.Container):
         self.page.open(dialog)
 
     def _delete_ae(self, ae: Dict):
-        def confirm(e):
+        def on_confirm():
             try:
                 self.ae_queries.delete(ae["id"])
                 self._load_ae(self.search_field.value, self.outcome_filter.value)
                 if self.page:
                     self.ae_table.update()
                     self.stats_row.update()
-                dialog.open = False
-                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
-        def cancel(e):
-            dialog.open = False
-            self.page.update()
-
-        dialog = ft.AlertDialog(
-            title=ft.Text("Delete AE"),
-            content=ft.Text(f"Delete adverse event '{ae.get('ae_term')}'?"),
-            actions=[
-                ft.TextButton(content=ft.Text("Cancel"), on_click=cancel),
-                ft.Button(content=ft.Text("Delete"), on_click=confirm, bgcolor=ft.Colors.ERROR),
-            ],
-        )
-        self.page.open(dialog)
+        ConfirmDialog(
+            title="Delete AE",
+            message=f"Delete adverse event '{ae.get('ae_term')}'?",
+            confirm_text="Delete",
+            on_confirm=on_confirm,
+            danger=True,
+        ).show(self.page)

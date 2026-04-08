@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
 """
 Gestion des queries (data management).
 """
 
 import flet as ft
 from typing import Optional, Dict, List
-from datetime import datetime
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatusBadge, StatChip, ConfirmDialog
 
 
 class QueryDialog(ft.AlertDialog):
@@ -26,6 +28,7 @@ class QueryDialog(ft.AlertDialog):
             ],
             value=str(query.get("patient_id")) if query else None,
             width=250,
+            border_radius=Radius.INPUT,
         )
 
         # Champ / Variable
@@ -33,6 +36,7 @@ class QueryDialog(ft.AlertDialog):
             label="Field / Variable *",
             value=query.get("field_name", "") if query else "",
             autofocus=True,
+            border_radius=Radius.INPUT,
         )
 
         # Description
@@ -42,6 +46,7 @@ class QueryDialog(ft.AlertDialog):
             multiline=True,
             min_lines=2,
             max_lines=4,
+            border_radius=Radius.INPUT,
         )
 
         # Priorité
@@ -50,6 +55,7 @@ class QueryDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=p, text=p) for p in self.PRIORITIES],
             value=query.get("priority", "Medium") if query else "Medium",
             width=150,
+            border_radius=Radius.INPUT,
         )
 
         # Statut
@@ -58,6 +64,7 @@ class QueryDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=s, text=s) for s in self.STATUSES],
             value=query.get("status", "Open") if query else "Open",
             width=150,
+            border_radius=Radius.INPUT,
         )
 
         # Réponse
@@ -67,6 +74,7 @@ class QueryDialog(ft.AlertDialog):
             multiline=True,
             min_lines=2,
             max_lines=4,
+            border_radius=Radius.INPUT,
         )
 
         content = ft.Column(
@@ -74,20 +82,25 @@ class QueryDialog(ft.AlertDialog):
                 self.patient_dropdown,
                 self.field_field,
                 self.description_field,
-                ft.Row([self.priority_dropdown, self.status_dropdown], spacing=10),
+                ft.Row([self.priority_dropdown, self.status_dropdown], spacing=Spacing.SM),
                 self.response_field,
             ],
-            spacing=15,
+            spacing=Spacing.MD,
             tight=True,
             width=450,
         )
 
         super().__init__(
-            title=ft.Text("Edit Query" if query else "New Query"),
+            title=ft.Text("Edit Query" if query else "New Query", **Typography.H4),
             content=content,
             actions=[
                 ft.TextButton(content=ft.Text("Cancel"), on_click=self._cancel),
-                ft.Button(content=ft.Text("Save"), on_click=self._save),
+                ft.Button(
+                    content=ft.Text("Save"),
+                    on_click=self._save,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
             ],
         )
 
@@ -130,16 +143,12 @@ class QueryDialog(ft.AlertDialog):
 class QueriesView(ft.Container):
     """Vue de gestion des queries."""
 
-    STATUS_COLORS = {
-        "Open": "#d9534f",
-        "Answered": "#f0ad4e",
-        "Closed": "#5cb85c",
-    }
+    STATUSES = ["Open", "Answered", "Closed"]
 
     PRIORITY_COLORS = {
-        "Low": "#5bc0de",
-        "Medium": "#f0ad4e",
-        "High": "#d9534f",
+        "Low": AppColors.INFO,
+        "Medium": AppColors.WARNING,
+        "High": AppColors.ERROR,
     }
 
     def __init__(self, patient_queries, query_queries):
@@ -147,17 +156,17 @@ class QueriesView(ft.Container):
         self.query_queries = query_queries
 
         # Titre
-        title = ft.Text("Data Queries", size=24, weight=ft.FontWeight.BOLD)
+        title = ft.Text("Data Queries", **Typography.H2)
 
         # Bouton ajouter
         add_btn = ft.Button(
             content=ft.Row(
                 [ft.Icon(ft.Icons.ADD, size=18), ft.Text("New Query")],
-                spacing=8,
+                spacing=Spacing.XS,
             ),
             on_click=self._add_query,
-            bgcolor=ft.Colors.PRIMARY,
-            color=ft.Colors.ON_PRIMARY,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
         )
 
         # Recherche
@@ -166,16 +175,18 @@ class QueriesView(ft.Container):
             prefix_icon=ft.Icons.SEARCH,
             width=250,
             on_change=self._on_search,
+            border_radius=Radius.INPUT,
         )
 
         # Filtre statut
         self.status_filter = ft.Dropdown(
             label="Status",
             options=[ft.DropdownOption(key="All", text="All")] +
-                    [ft.DropdownOption(key=s, text=s) for s in self.STATUS_COLORS.keys()],
+                    [ft.DropdownOption(key=s, text=s) for s in self.STATUSES],
             value="All",
             width=150,
             on_select=self._on_filter_change,
+            border_radius=Radius.INPUT,
         )
 
         header = ft.Row(
@@ -183,37 +194,37 @@ class QueriesView(ft.Container):
         )
 
         # Stats
-        self.stats_row = ft.Row(spacing=10)
+        self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau
         self.queries_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Patient", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Field", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Description", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Priority", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Status", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actions", weight=ft.FontWeight.BOLD)),
+                ft.DataColumn(ft.Text("Patient", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Field", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Description", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Priority", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            heading_row_color=ft.Colors.SURFACE_CONTAINER,
+            border=ft.border.all(1, AppColors.BORDER),
+            border_radius=Radius.TABLE,
+            heading_row_color=AppColors.SURFACE_VARIANT,
         )
 
         content = ft.Column(
             [
                 header,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 self.stats_row,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Container(content=self.queries_table, expand=True),
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         self._load_queries()
 
@@ -245,27 +256,24 @@ class QueriesView(ft.Container):
             status = query.get("status", "Open")
             priority = query.get("priority", "Medium")
 
+            # Badge priorité
+            priority_badge = ft.Container(
+                content=ft.Text(priority, **Typography.BADGE, color=AppColors.TEXT_ON_PRIMARY),
+                bgcolor=self.PRIORITY_COLORS.get(priority, AppColors.NEUTRAL),
+                border_radius=Radius.BADGE,
+                padding=Spacing.badge(),
+            )
+
             row = ft.DataRow(
                 cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", "?"))),
-                    ft.DataCell(ft.Text(query.get("field_name", ""), weight=ft.FontWeight.BOLD)),
-                    ft.DataCell(ft.Text(query.get("description", "")[:50] + "..." if len(query.get("description", "")) > 50 else query.get("description", ""))),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(priority, color=ft.Colors.WHITE, size=12),
-                            bgcolor=self.PRIORITY_COLORS.get(priority, "#777"),
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(status, color=ft.Colors.WHITE, size=12),
-                            bgcolor=self.STATUS_COLORS.get(status, "#777"),
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
+                    ft.DataCell(ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(query.get("field_name", ""), **Typography.TABLE_CELL, weight=ft.FontWeight.BOLD)),
+                    ft.DataCell(ft.Text(
+                        query.get("description", "")[:50] + "..." if len(query.get("description", "")) > 50 else query.get("description", ""),
+                        **Typography.TABLE_CELL,
+                    )),
+                    ft.DataCell(priority_badge),
+                    ft.DataCell(StatusBadge.query_status(status)),
                     ft.DataCell(
                         ft.Row(
                             [
@@ -277,7 +285,7 @@ class QueriesView(ft.Container):
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE,
                                     icon_size=18,
-                                    icon_color=ft.Colors.ERROR,
+                                    icon_color=AppColors.ERROR,
                                     on_click=lambda e, q=query: self._delete_query(q),
                                 ),
                             ],
@@ -298,25 +306,13 @@ class QueriesView(ft.Container):
         closed = sum(1 for q in queries if q.get("status") == "Closed")
         high_priority = sum(1 for q in queries if q.get("priority") == "High" and q.get("status") != "Closed")
 
-        stats = [
-            ("Total", total, ft.Colors.PRIMARY),
-            ("Open", open_count, "#d9534f"),
-            ("Answered", answered, "#f0ad4e"),
-            ("Closed", closed, "#5cb85c"),
-            ("High Priority", high_priority, "#d9534f"),
-        ]
-
-        for label, value, color in stats:
-            chip = ft.Container(
-                content=ft.Row(
-                    [ft.Text(label, size=12), ft.Text(str(value), weight=ft.FontWeight.BOLD, color=color)],
-                    spacing=5,
-                ),
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                border_radius=20,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            )
-            self.stats_row.controls.append(chip)
+        self.stats_row.controls.extend([
+            StatChip("Total", total, AppColors.INFO),
+            StatChip("Open", open_count, AppColors.ERROR),
+            StatChip("Answered", answered, AppColors.WARNING),
+            StatChip("Closed", closed, AppColors.SUCCESS),
+            StatChip("High Priority", high_priority, AppColors.ERROR),
+        ])
 
     def _on_search(self, e):
         self._load_queries(search=self.search_field.value, status_filter=self.status_filter.value)
@@ -363,28 +359,20 @@ class QueriesView(ft.Container):
         self.page.open(dialog)
 
     def _delete_query(self, query: Dict):
-        def confirm(e):
+        def on_confirm():
             try:
                 self.query_queries.delete(query["id"])
                 self._load_queries(self.search_field.value, self.status_filter.value)
                 if self.page:
                     self.queries_table.update()
                     self.stats_row.update()
-                dialog.open = False
-                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
-        def cancel(e):
-            dialog.open = False
-            self.page.update()
-
-        dialog = ft.AlertDialog(
-            title=ft.Text("Delete Query"),
-            content=ft.Text(f"Delete query for field '{query.get('field_name')}'?"),
-            actions=[
-                ft.TextButton(content=ft.Text("Cancel"), on_click=cancel),
-                ft.Button(content=ft.Text("Delete"), on_click=confirm, bgcolor=ft.Colors.ERROR),
-            ],
-        )
-        self.page.open(dialog)
+        ConfirmDialog(
+            title="Delete Query",
+            message=f"Delete query for field '{query.get('field_name')}'?",
+            confirm_text="Delete",
+            on_confirm=on_confirm,
+            danger=True,
+        ).show(self.page)

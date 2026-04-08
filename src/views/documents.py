@@ -1,9 +1,12 @@
+# -*- coding: utf-8 -*-
 """
 Gestion des documents et consentements.
 """
 
 import flet as ft
 from typing import Optional, Dict, List
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatChip, ConfirmDialog
 
 
 class ConsentDialog(ft.AlertDialog):
@@ -25,6 +28,7 @@ class ConsentDialog(ft.AlertDialog):
             value=str(existing_consent.get("consent_config_id")) if existing_consent else None,
             width=300,
             on_select=self._on_type_change,
+            border_radius=Radius.INPUT,
         )
 
         # Version
@@ -32,6 +36,7 @@ class ConsentDialog(ft.AlertDialog):
             label="Version *",
             options=[],
             width=200,
+            border_radius=Radius.INPUT,
         )
 
         # Date de signature
@@ -39,6 +44,7 @@ class ConsentDialog(ft.AlertDialog):
             label="Signature Date (YYYY-MM-DD) *",
             value=str(existing_consent.get("consent_date", "")) if existing_consent else "",
             autofocus=True,
+            border_radius=Radius.INPUT,
         )
 
         # Notes
@@ -48,28 +54,34 @@ class ConsentDialog(ft.AlertDialog):
             multiline=True,
             min_lines=2,
             max_lines=4,
+            border_radius=Radius.INPUT,
         )
 
         content = ft.Column(
             [
-                ft.Text(f"Patient: {patient.get('patient_number')}", size=12, color=ft.Colors.GREY_500),
+                ft.Text(f"Patient: {patient.get('patient_number')}", **Typography.BODY_SMALL, color=AppColors.TEXT_SECONDARY),
                 ft.Divider(),
                 self.type_dropdown,
                 self.version_dropdown,
                 self.date_field,
                 self.notes_field,
             ],
-            spacing=15,
+            spacing=Spacing.MD,
             tight=True,
             width=350,
         )
 
         super().__init__(
-            title=ft.Text("Edit Consent" if existing_consent else "New Consent"),
+            title=ft.Text("Edit Consent" if existing_consent else "New Consent", **Typography.H4),
             content=content,
             actions=[
                 ft.TextButton(content=ft.Text("Cancel"), on_click=self._cancel),
-                ft.Button(content=ft.Text("Save"), on_click=self._save),
+                ft.Button(
+                    content=ft.Text("Save"),
+                    on_click=self._save,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
             ],
         )
 
@@ -138,7 +150,7 @@ class DocumentsView(ft.Container):
         self.consent_queries = consent_queries
 
         # Titre
-        title = ft.Text("Documents & Consents", size=24, weight=ft.FontWeight.BOLD)
+        title = ft.Text("Documents & Consents", **Typography.H2)
 
         # Sélecteur de patient
         self.patient_dropdown = ft.Dropdown(
@@ -146,6 +158,7 @@ class DocumentsView(ft.Container):
             options=[],
             width=300,
             on_select=self._on_patient_change,
+            border_radius=Radius.INPUT,
         )
 
         header = ft.Row(
@@ -153,49 +166,49 @@ class DocumentsView(ft.Container):
         )
 
         # Stats
-        self.stats_row = ft.Row(spacing=10)
+        self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau des consentements
         self.consents_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Type", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Version", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Date", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Notes", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actions", weight=ft.FontWeight.BOLD)),
+                ft.DataColumn(ft.Text("Type", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Version", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Date", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Notes", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            heading_row_color=ft.Colors.SURFACE_CONTAINER,
+            border=ft.border.all(1, AppColors.BORDER),
+            border_radius=Radius.TABLE,
+            heading_row_color=AppColors.SURFACE_VARIANT,
         )
 
         # Bouton ajouter
         self.add_btn = ft.Button(
             content=ft.Row(
                 [ft.Icon(ft.Icons.ADD, size=18), ft.Text("Add Consent")],
-                spacing=8,
+                spacing=Spacing.XS,
             ),
             on_click=self._add_consent,
-            bgcolor=ft.Colors.PRIMARY,
-            color=ft.Colors.ON_PRIMARY,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
         )
 
         content = ft.Column(
             [
                 header,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 self.stats_row,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Row([ft.Container(expand=True), self.add_btn]),
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Container(content=self.consents_table, expand=True),
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         self._load_patients()
 
@@ -238,17 +251,17 @@ class DocumentsView(ft.Container):
 
             row = ft.DataRow(
                 cells=[
-                    ft.DataCell(ft.Text(config.get("consent_type", "?"))),
+                    ft.DataCell(ft.Text(config.get("consent_type", "?"), **Typography.TABLE_CELL)),
                     ft.DataCell(
                         ft.Container(
-                            content=ft.Text(consent.get("version", "-"), size=12),
-                            bgcolor=ft.Colors.PRIMARY,
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                            content=ft.Text(consent.get("version", "-"), **Typography.BADGE, color=AppColors.TEXT_ON_PRIMARY),
+                            bgcolor=AppColors.PRIMARY,
+                            border_radius=Radius.BADGE,
+                            padding=Spacing.badge(),
                         )
                     ),
-                    ft.DataCell(ft.Text(str(consent.get("consent_date", "-")))),
-                    ft.DataCell(ft.Text(consent.get("notes", "-") or "-", max_lines=1)),
+                    ft.DataCell(ft.Text(str(consent.get("consent_date", "-")), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(consent.get("notes", "-") or "-", **Typography.TABLE_CELL, max_lines=1)),
                     ft.DataCell(
                         ft.Row(
                             [
@@ -260,7 +273,7 @@ class DocumentsView(ft.Container):
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE,
                                     icon_size=18,
-                                    icon_color=ft.Colors.ERROR,
+                                    icon_color=AppColors.ERROR,
                                     on_click=lambda e, c=consent: self._delete_consent(c),
                                 ),
                             ],
@@ -276,27 +289,15 @@ class DocumentsView(ft.Container):
         self.stats_row.controls.clear()
 
         total = len(consents)
-        by_type = {}
+        by_type: Dict[str, int] = {}
         for consent in consents:
             config = configs.get(consent.get("consent_config_id"), {})
             ctype = config.get("consent_type", "Unknown")
             by_type[ctype] = by_type.get(ctype, 0) + 1
 
-        stats = [("Total", total, ft.Colors.PRIMARY)]
+        self.stats_row.controls.append(StatChip("Total", total, AppColors.INFO))
         for ctype, count in by_type.items():
-            stats.append((ctype, count, "#5cb85c"))
-
-        for label, value, color in stats:
-            chip = ft.Container(
-                content=ft.Row(
-                    [ft.Text(label, size=12), ft.Text(str(value), weight=ft.FontWeight.BOLD, color=color)],
-                    spacing=5,
-                ),
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                border_radius=20,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            )
-            self.stats_row.controls.append(chip)
+            self.stats_row.controls.append(StatChip(ctype, count, AppColors.SUCCESS))
 
     def _add_consent(self, e):
         patient_id = int(self.patient_dropdown.value)
@@ -337,28 +338,20 @@ class DocumentsView(ft.Container):
     def _delete_consent(self, consent: Dict):
         patient_id = int(self.patient_dropdown.value)
 
-        def confirm(e):
+        def on_confirm():
             try:
                 self.consent_queries.delete(consent["id"])
                 self._load_consents(patient_id)
                 if self.page:
                     self.consents_table.update()
                     self.stats_row.update()
-                dialog.open = False
-                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
-        def cancel(e):
-            dialog.open = False
-            self.page.update()
-
-        dialog = ft.AlertDialog(
-            title=ft.Text("Delete Consent"),
-            content=ft.Text("Delete this consent record?"),
-            actions=[
-                ft.TextButton(content=ft.Text("Cancel"), on_click=cancel),
-                ft.Button(content=ft.Text("Delete"), on_click=confirm, bgcolor=ft.Colors.ERROR),
-            ],
-        )
-        self.page.open(dialog)
+        ConfirmDialog(
+            title="Delete Consent",
+            message="Delete this consent record?",
+            confirm_text="Delete",
+            on_confirm=on_confirm,
+            danger=True,
+        ).show(self.page)

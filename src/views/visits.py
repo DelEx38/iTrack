@@ -1,10 +1,13 @@
+# -*- coding: utf-8 -*-
 """
 Gestion des visites.
 """
 
 import flet as ft
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from datetime import datetime, timedelta
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatusBadge, StatChip
 
 
 class VisitDialog(ft.AlertDialog):
@@ -45,6 +48,7 @@ class VisitDialog(ft.AlertDialog):
             label="Visit Date (YYYY-MM-DD) *",
             value=str(existing_visit.get("visit_date", "")) if existing_visit else "",
             autofocus=True,
+            border_radius=Radius.INPUT,
         )
 
         self.status_dropdown = ft.Dropdown(
@@ -56,6 +60,7 @@ class VisitDialog(ft.AlertDialog):
             ],
             value=existing_visit.get("status", "Completed") if existing_visit else "Completed",
             width=200,
+            border_radius=Radius.INPUT,
         )
 
         self.notes_field = ft.TextField(
@@ -64,27 +69,33 @@ class VisitDialog(ft.AlertDialog):
             multiline=True,
             min_lines=2,
             max_lines=4,
+            border_radius=Radius.INPUT,
         )
 
         content = ft.Column(
             [
-                ft.Text(info_text, size=12, color=ft.Colors.GREY_500),
+                ft.Text(info_text, **Typography.BODY_SMALL, color=AppColors.TEXT_SECONDARY),
                 ft.Divider(),
                 self.date_field,
                 self.status_dropdown,
                 self.notes_field,
             ],
-            spacing=15,
+            spacing=Spacing.MD,
             tight=True,
             width=350,
         )
 
         super().__init__(
-            title=ft.Text(f"Record Visit - {visit_config.get('visit_name')}"),
+            title=ft.Text(f"Record Visit - {visit_config.get('visit_name')}", **Typography.H4),
             content=content,
             actions=[
                 ft.TextButton(content=ft.Text("Cancel"), on_click=self._cancel),
-                ft.Button(content=ft.Text("Save"), on_click=self._save),
+                ft.Button(
+                    content=ft.Text("Save"),
+                    on_click=self._save,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
             ],
         )
 
@@ -117,18 +128,12 @@ class VisitDialog(ft.AlertDialog):
 class VisitsView(ft.Container):
     """Vue de gestion des visites."""
 
-    STATUS_COLORS = {
-        "Completed": "#5cb85c",
-        "Pending": "#f0ad4e",
-        "Missed": "#d9534f",
-    }
-
     def __init__(self, patient_queries, visit_queries):
         self.patient_queries = patient_queries
         self.visit_queries = visit_queries
 
         # Titre
-        title = ft.Text("Visits", size=24, weight=ft.FontWeight.BOLD)
+        title = ft.Text("Visits", **Typography.H2)
 
         # Sélecteur de patient
         self.patient_dropdown = ft.Dropdown(
@@ -136,33 +141,34 @@ class VisitsView(ft.Container):
             options=[],
             width=300,
             on_select=self._on_patient_change,
+            border_radius=Radius.INPUT,
         )
 
         # Info patient
-        self.patient_info = ft.Text("", size=12, color=ft.Colors.GREY_500)
+        self.patient_info = ft.Text("", **Typography.BODY_SMALL, color=AppColors.TEXT_SECONDARY)
 
         header = ft.Row(
             [title, ft.Container(expand=True), self.patient_dropdown],
         )
 
         # Stats
-        self.stats_row = ft.Row(spacing=10)
+        self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Grille des visites
         self.visits_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Visit", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Day", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Target Date", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actual Date", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Window", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Status", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actions", weight=ft.FontWeight.BOLD)),
+                ft.DataColumn(ft.Text("Visit", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Day", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Target Date", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actual Date", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Window", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            heading_row_color=ft.Colors.SURFACE_CONTAINER,
+            border=ft.border.all(1, AppColors.BORDER),
+            border_radius=Radius.TABLE,
+            heading_row_color=AppColors.SURFACE_VARIANT,
         )
 
         # Légende
@@ -170,42 +176,42 @@ class VisitsView(ft.Container):
             [
                 ft.Container(
                     content=ft.Row([
-                        ft.Container(width=12, height=12, bgcolor="#5cb85c", border_radius=2),
-                        ft.Text("In Window", size=12),
-                    ], spacing=5),
+                        ft.Container(width=12, height=12, bgcolor=AppColors.SUCCESS, border_radius=2),
+                        ft.Text("In Window", **Typography.BODY_SMALL),
+                    ], spacing=Spacing.XS),
                 ),
                 ft.Container(
                     content=ft.Row([
-                        ft.Container(width=12, height=12, bgcolor="#d9534f", border_radius=2),
-                        ft.Text("Out of Window", size=12),
-                    ], spacing=5),
+                        ft.Container(width=12, height=12, bgcolor=AppColors.ERROR, border_radius=2),
+                        ft.Text("Out of Window", **Typography.BODY_SMALL),
+                    ], spacing=Spacing.XS),
                 ),
                 ft.Container(
                     content=ft.Row([
-                        ft.Container(width=12, height=12, bgcolor="#f0ad4e", border_radius=2),
-                        ft.Text("Pending", size=12),
-                    ], spacing=5),
+                        ft.Container(width=12, height=12, bgcolor=AppColors.WARNING, border_radius=2),
+                        ft.Text("Pending", **Typography.BODY_SMALL),
+                    ], spacing=Spacing.XS),
                 ),
             ],
-            spacing=20,
+            spacing=Spacing.LG,
         )
 
         content = ft.Column(
             [
                 header,
                 self.patient_info,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 self.stats_row,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 legend,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Container(content=self.visits_table, expand=True),
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         self._load_patients()
 
@@ -284,16 +290,15 @@ class VisitsView(ft.Container):
 
                     if -window_before <= delta <= window_after:
                         window_check = f"OK ({delta:+d}d)"
-                        window_color = "#5cb85c"
+                        window_color = AppColors.SUCCESS
                         in_window += 1
                     else:
                         window_check = f"OUT ({delta:+d}d)"
-                        window_color = "#d9534f"
+                        window_color = AppColors.ERROR
                         out_window += 1
 
             # Statut
             status = visit.get("status", "Pending") if visit else "Pending"
-            status_color = self.STATUS_COLORS.get(status, "#777777")
 
             # Nom de la visite
             visit_name = config.get("visit_name", "")
@@ -302,21 +307,23 @@ class VisitsView(ft.Container):
 
             row = ft.DataRow(
                 cells=[
-                    ft.DataCell(ft.Text(visit_name, weight=ft.FontWeight.BOLD if target_day == 0 else None)),
-                    ft.DataCell(ft.Text(f"D{target_day}" if target_day >= 0 else f"D{target_day}")),
-                    ft.DataCell(ft.Text(target_date)),
-                    ft.DataCell(ft.Text(str(visit.get("visit_date", "-")) if visit else "-")),
+                    ft.DataCell(ft.Text(
+                        visit_name,
+                        **Typography.TABLE_CELL,
+                        weight=ft.FontWeight.BOLD if target_day == 0 else None,
+                        color=AppColors.INFO if target_day == 0 else None,
+                    )),
+                    ft.DataCell(ft.Text(f"D{target_day}", **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(target_date, **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(
+                        str(visit.get("visit_date", "-")) if visit else "-",
+                        **Typography.TABLE_CELL,
+                    )),
                     ft.DataCell(
-                        ft.Text(window_check, color=window_color) if window_color else ft.Text(window_check)
+                        ft.Text(window_check, color=window_color, **Typography.TABLE_CELL)
+                        if window_color else ft.Text(window_check, **Typography.TABLE_CELL)
                     ),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(status, color=ft.Colors.WHITE, size=12),
-                            bgcolor=status_color,
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
+                    ft.DataCell(StatusBadge.visit_status(status)),
                     ft.DataCell(
                         ft.IconButton(
                             icon=ft.Icons.EDIT,
@@ -344,25 +351,12 @@ class VisitsView(ft.Container):
     def _update_stats(self, completed: int, in_window: int, out_window: int, pending: int):
         """Met à jour les statistiques."""
         self.stats_row.controls.clear()
-
-        stats = [
-            ("Completed", completed, "#5cb85c"),
-            ("In Window", in_window, "#5cb85c"),
-            ("Out of Window", out_window, "#d9534f"),
-            ("Pending", pending, "#f0ad4e"),
-        ]
-
-        for label, value, color in stats:
-            chip = ft.Container(
-                content=ft.Row(
-                    [ft.Text(label, size=12), ft.Text(str(value), weight=ft.FontWeight.BOLD, color=color)],
-                    spacing=5,
-                ),
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                border_radius=20,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            )
-            self.stats_row.controls.append(chip)
+        self.stats_row.controls.extend([
+            StatChip("Completed", completed, AppColors.SUCCESS),
+            StatChip("In Window", in_window, AppColors.SUCCESS),
+            StatChip("Out of Window", out_window, AppColors.ERROR),
+            StatChip("Pending", pending, AppColors.WARNING),
+        ])
 
     def _record_visit(self, config: Dict, existing_visit: Optional[Dict]):
         """Ouvre le dialogue d'enregistrement de visite."""

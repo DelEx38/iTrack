@@ -1,9 +1,12 @@
+# -*- coding: utf-8 -*-
 """
 Gestion des sites / centres investigateurs.
 """
 
 import flet as ft
 from typing import Optional, Dict, List
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatusBadge, StatChip, FormField, ConfirmDialog, SectionHeader
 
 
 class SiteDialog(ft.AlertDialog):
@@ -17,21 +20,23 @@ class SiteDialog(ft.AlertDialog):
         self.on_save = on_save
         self.result = None
 
-        # Champs du site
-        self.number_field = ft.TextField(
-            label="Site Number *",
+        # Champs du site avec FormField
+        self.number_field = FormField(
+            label="Site Number",
+            required=True,
             value=site.get("site_number", "") if site else "",
             autofocus=True,
         )
-        self.name_field = ft.TextField(
-            label="Site Name *",
+        self.name_field = FormField(
+            label="Site Name",
+            required=True,
             value=site.get("name", "") if site else "",
         )
-        self.city_field = ft.TextField(
+        self.city_field = FormField(
             label="City",
             value=site.get("city", "") if site else "",
         )
-        self.country_field = ft.TextField(
+        self.country_field = FormField(
             label="Country",
             value=site.get("country", "") if site else "",
         )
@@ -42,40 +47,46 @@ class SiteDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=s, text=s) for s in self.STATUSES],
             value=study_site.get("status", "Active") if study_site else "Active",
             width=200,
+            border_radius=Radius.INPUT,
         )
-        self.pi_field = ft.TextField(
+        self.pi_field = FormField(
             label="Principal Investigator",
             value=study_site.get("principal_investigator", "") if study_site else "",
         )
-        self.target_field = ft.TextField(
+        self.target_field = FormField(
             label="Recruitment Target",
+            helper="Number of patients to recruit",
             value=str(study_site.get("target_patients", "") or "") if study_site else "",
             keyboard_type=ft.KeyboardType.NUMBER,
         )
 
         content = ft.Column(
             [
-                ft.Text("Site Information", weight=ft.FontWeight.BOLD),
+                SectionHeader(title="Site Information", icon=ft.Icons.BUSINESS),
                 self.number_field,
                 self.name_field,
-                ft.Row([self.city_field, self.country_field], spacing=10),
-                ft.Divider(),
-                ft.Text("Study-specific Information", weight=ft.FontWeight.BOLD),
+                ft.Row([self.city_field, self.country_field], spacing=Spacing.SM),
+                SectionHeader(title="Study-specific Information", icon=ft.Icons.SCIENCE),
                 self.status_dropdown,
                 self.pi_field,
                 self.target_field,
             ],
-            spacing=10,
+            spacing=Spacing.XS,
             tight=True,
             width=400,
         )
 
         super().__init__(
-            title=ft.Text("Edit Site" if site else "New Site"),
+            title=ft.Text("Edit Site" if site else "New Site", **Typography.H4),
             content=content,
             actions=[
                 ft.TextButton(content=ft.Text("Cancel"), on_click=self._cancel),
-                ft.Button(content=ft.Text("Save"), on_click=self._save),
+                ft.Button(
+                    content=ft.Text("Save"),
+                    on_click=self._save,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
             ],
         )
 
@@ -84,12 +95,13 @@ class SiteDialog(ft.AlertDialog):
         self.page.update()
 
     def _save(self, e):
-        if not self.number_field.value or not self.name_field.value:
-            if not self.number_field.value:
-                self.number_field.error_text = "Required"
-            if not self.name_field.value:
-                self.name_field.error_text = "Required"
-            self.page.update()
+        # Validation avec FormField
+        valid = True
+        if not self.number_field.validate():
+            valid = False
+        if not self.name_field.validate():
+            valid = False
+        if not valid:
             return
 
         self.result = {
@@ -119,28 +131,24 @@ class SiteDialog(ft.AlertDialog):
 class SitesView(ft.Container):
     """Vue de gestion des sites."""
 
-    STATUS_COLORS = {
-        "Active": "#5cb85c",
-        "On Hold": "#f0ad4e",
-        "Closed": "#d9534f",
-    }
+    STATUSES = ["Active", "On Hold", "Closed"]
 
     def __init__(self, db, current_study: Optional[Dict] = None):
         self.db = db
         self.current_study = current_study
 
         # Titre
-        title = ft.Text("Sites", size=24, weight=ft.FontWeight.BOLD)
+        title = ft.Text("Sites", **Typography.H2)
 
         # Bouton ajouter
         add_btn = ft.Button(
             content=ft.Row(
                 [ft.Icon(ft.Icons.ADD, size=18), ft.Text("Add Site")],
-                spacing=8,
+                spacing=Spacing.XS,
             ),
             on_click=self._add_site,
-            bgcolor=ft.Colors.PRIMARY,
-            color=ft.Colors.ON_PRIMARY,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
         )
 
         # Barre de recherche
@@ -149,16 +157,18 @@ class SitesView(ft.Container):
             prefix_icon=ft.Icons.SEARCH,
             width=300,
             on_change=self._on_search,
+            border_radius=Radius.INPUT,
         )
 
         # Filtre par statut
         self.status_filter = ft.Dropdown(
             label="Status",
             options=[ft.DropdownOption(key="All", text="All")] +
-                    [ft.DropdownOption(key=s, text=s) for s in self.STATUS_COLORS.keys()],
+                    [ft.DropdownOption(key=s, text=s) for s in self.STATUSES],
             value="All",
             width=150,
             on_select=self._on_filter_change,
+            border_radius=Radius.INPUT,
         )
 
         header = ft.Row(
@@ -166,38 +176,38 @@ class SitesView(ft.Container):
         )
 
         # Stats
-        self.stats_row = ft.Row(spacing=10)
+        self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau des sites
         self.sites_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Site #", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Name", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("City", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("PI", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Status", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Patients", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actions", weight=ft.FontWeight.BOLD)),
+                ft.DataColumn(ft.Text("Site #", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Name", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("City", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("PI", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Patients", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            heading_row_color=ft.Colors.SURFACE_CONTAINER,
+            border=ft.border.all(1, AppColors.BORDER),
+            border_radius=Radius.TABLE,
+            heading_row_color=AppColors.SURFACE_VARIANT,
         )
 
         content = ft.Column(
             [
                 header,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 self.stats_row,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Container(content=self.sites_table, expand=True),
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         self._load_sites()
 
@@ -229,7 +239,6 @@ class SitesView(ft.Container):
         self.sites_table.rows.clear()
         for site in sites:
             status = site.get("status", "Active")
-            status_color = self.STATUS_COLORS.get(status, "#777777")
 
             # Compter les patients
             patient_count = self._get_patient_count(site.get("site_id"))
@@ -240,19 +249,12 @@ class SitesView(ft.Container):
 
             row = ft.DataRow(
                 cells=[
-                    ft.DataCell(ft.Text(site.get("site_number", ""))),
-                    ft.DataCell(ft.Text(site.get("name", ""))),
-                    ft.DataCell(ft.Text(site.get("city", "") or "-")),
-                    ft.DataCell(ft.Text(site.get("principal_investigator", "") or "-")),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(status, color=ft.Colors.WHITE, size=12),
-                            bgcolor=status_color,
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
-                    ft.DataCell(ft.Text(progress_text)),
+                    ft.DataCell(ft.Text(site.get("site_number", ""), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(site.get("name", ""), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(site.get("city", "") or "-", **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(site.get("principal_investigator", "") or "-", **Typography.TABLE_CELL)),
+                    ft.DataCell(StatusBadge.site_status(status)),
+                    ft.DataCell(ft.Text(progress_text, **Typography.TABLE_CELL)),
                     ft.DataCell(
                         ft.Row(
                             [
@@ -265,7 +267,7 @@ class SitesView(ft.Container):
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE,
                                     icon_size=18,
-                                    icon_color=ft.Colors.ERROR,
+                                    icon_color=AppColors.ERROR,
                                     on_click=lambda e, s=site: self._remove_site(s),
                                     tooltip="Remove from study",
                                 ),
@@ -288,31 +290,17 @@ class SitesView(ft.Container):
 
     def _update_stats(self, sites: List[Dict]):
         """Met à jour les statistiques."""
-        self.stats_row.controls.clear()
-
         total = len(sites)
         active = sum(1 for s in sites if s.get("status") == "Active")
         on_hold = sum(1 for s in sites if s.get("status") == "On Hold")
         closed = sum(1 for s in sites if s.get("status") == "Closed")
 
-        stats = [
-            ("Total", total, ft.Colors.PRIMARY),
-            ("Active", active, "#5cb85c"),
-            ("On Hold", on_hold, "#f0ad4e"),
-            ("Closed", closed, "#d9534f"),
+        self.stats_row.controls = [
+            StatChip("Total", str(total), AppColors.INFO),
+            StatChip("Active", str(active), AppColors.SUCCESS),
+            StatChip("On Hold", str(on_hold), AppColors.WARNING),
+            StatChip("Closed", str(closed), AppColors.ERROR),
         ]
-
-        for label, value, color in stats:
-            chip = ft.Container(
-                content=ft.Row(
-                    [ft.Text(label, size=12), ft.Text(str(value), weight=ft.FontWeight.BOLD, color=color)],
-                    spacing=5,
-                ),
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                border_radius=20,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            )
-            self.stats_row.controls.append(chip)
 
     def _on_search(self, e):
         self._load_sites(search=self.search_field.value, status_filter=self.status_filter.value)
@@ -377,28 +365,21 @@ class SitesView(ft.Container):
         self.page.open(dialog)
 
     def _remove_site(self, site: Dict):
-        def confirm_remove(e):
+        def on_confirm():
             try:
                 self.db.remove_site_from_study(self.current_study["id"], site["site_id"])
                 self._load_sites(self.search_field.value, self.status_filter.value)
                 if self.page:
                     self.sites_table.update()
                     self.stats_row.update()
-                dialog.open = False
-                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
-        def cancel(e):
-            dialog.open = False
-            self.page.update()
-
-        dialog = ft.AlertDialog(
-            title=ft.Text("Remove Site"),
-            content=ft.Text(f"Remove site {site.get('site_number')} from this study?"),
-            actions=[
-                ft.TextButton(content=ft.Text("Cancel"), on_click=cancel),
-                ft.Button(content=ft.Text("Remove"), on_click=confirm_remove, bgcolor=ft.Colors.ERROR),
-            ],
+        dialog = ConfirmDialog(
+            title="Remove Site",
+            message=f"Remove site {site.get('site_number')} from this study?",
+            confirm_text="Remove",
+            on_confirm=on_confirm,
+            danger=True,
         )
-        self.page.open(dialog)
+        dialog.show(self.page)

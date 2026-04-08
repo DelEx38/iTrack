@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
 """
 Gestion des patients.
 """
 
 import flet as ft
-from typing import Optional, Dict, List
-from datetime import date
+from typing import Optional, Dict
+from src.theme import AppColors, Typography, Spacing, Radius
+from src.components import StatusBadge, StatChip, FormField, ConfirmDialog, SectionHeader
 
 
 class PatientDialog(ft.AlertDialog):
@@ -17,18 +19,20 @@ class PatientDialog(ft.AlertDialog):
         self.on_save = on_save
         self.result = None
 
-        # Champs
-        self.number_field = ft.TextField(
-            label="Patient Number *",
+        # Champs avec FormField
+        self.number_field = FormField(
+            label="Patient Number",
+            required=True,
             value=patient.get("patient_number", "") if patient else "",
             autofocus=True,
         )
-        self.initials_field = ft.TextField(
+        self.initials_field = FormField(
             label="Initials",
             value=patient.get("initials", "") if patient else "",
         )
-        self.birth_date_field = ft.TextField(
-            label="Birth Date (YYYY-MM-DD)",
+        self.birth_date_field = FormField(
+            label="Birth Date",
+            helper="Format: YYYY-MM-DD",
             value=str(patient.get("birth_date", "")) if patient else "",
         )
         self.status_dropdown = ft.Dropdown(
@@ -36,9 +40,11 @@ class PatientDialog(ft.AlertDialog):
             options=[ft.DropdownOption(key=s, text=s) for s in self.STATUSES],
             value=patient.get("status", "Screening") if patient else "Screening",
             width=200,
+            border_radius=Radius.INPUT,
         )
-        self.inclusion_date_field = ft.TextField(
-            label="Inclusion Date (YYYY-MM-DD)",
+        self.inclusion_date_field = FormField(
+            label="Inclusion Date",
+            helper="Format: YYYY-MM-DD",
             value=str(patient.get("inclusion_date", "")) if patient else "",
         )
 
@@ -50,16 +56,24 @@ class PatientDialog(ft.AlertDialog):
                 self.status_dropdown,
                 self.inclusion_date_field,
             ],
-            spacing=15,
+            spacing=Spacing.SM,
             tight=True,
         )
 
         super().__init__(
-            title=ft.Text("Edit Patient" if patient else "New Patient"),
+            title=ft.Text(
+                "Edit Patient" if patient else "New Patient",
+                **Typography.H4,
+            ),
             content=content,
             actions=[
                 ft.TextButton(content=ft.Text("Cancel"), on_click=self._cancel),
-                ft.Button(content=ft.Text("Save"), on_click=self._save),
+                ft.Button(
+                    content=ft.Text("Save"),
+                    on_click=self._save,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
             ],
         )
 
@@ -68,9 +82,8 @@ class PatientDialog(ft.AlertDialog):
         self.page.update()
 
     def _save(self, e):
-        if not self.number_field.value:
-            self.number_field.error_text = "Required"
-            self.number_field.update()
+        # Validation avec FormField
+        if not self.number_field.validate():
             return
 
         self.result = {
@@ -92,13 +105,7 @@ class PatientDialog(ft.AlertDialog):
 class PatientsView(ft.Container):
     """Vue de gestion des patients."""
 
-    STATUS_COLORS = {
-        "Screening": "#f0ad4e",
-        "Included": "#5cb85c",
-        "Completed": "#5bc0de",
-        "Withdrawn": "#d9534f",
-        "Screen Failure": "#777777",
-    }
+    STATUSES = ["Screening", "Included", "Completed", "Withdrawn", "Screen Failure"]
 
     def __init__(self, patient_queries, visit_queries, consent_queries):
         self.patient_queries = patient_queries
@@ -106,17 +113,17 @@ class PatientsView(ft.Container):
         self.consent_queries = consent_queries
 
         # Titre
-        title = ft.Text("Patients", size=24, weight=ft.FontWeight.BOLD)
+        title = ft.Text("Patients", **Typography.H2)
 
         # Bouton ajouter
         add_btn = ft.Button(
             content=ft.Row(
                 [ft.Icon(ft.Icons.ADD, size=18), ft.Text("Add Patient")],
-                spacing=8,
+                spacing=Spacing.XS,
             ),
             on_click=self._add_patient,
-            bgcolor=ft.Colors.PRIMARY,
-            color=ft.Colors.ON_PRIMARY,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
         )
 
         # Barre de recherche
@@ -125,16 +132,18 @@ class PatientsView(ft.Container):
             prefix_icon=ft.Icons.SEARCH,
             width=300,
             on_change=self._on_search,
+            border_radius=Radius.INPUT,
         )
 
         # Filtre par statut
         self.status_filter = ft.Dropdown(
             label="Status",
             options=[ft.DropdownOption(key="All", text="All")] +
-                    [ft.DropdownOption(key=s, text=s) for s in self.STATUS_COLORS.keys()],
+                    [ft.DropdownOption(key=s, text=s) for s in self.STATUSES],
             value="All",
             width=150,
             on_select=self._on_filter_change,
+            border_radius=Radius.INPUT,
         )
 
         header = ft.Row(
@@ -143,29 +152,29 @@ class PatientsView(ft.Container):
         )
 
         # Stats
-        self.stats_row = ft.Row(spacing=10)
+        self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau des patients
         self.patients_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Patient #", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Initials", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Status", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Inclusion Date", weight=ft.FontWeight.BOLD)),
-                ft.DataColumn(ft.Text("Actions", weight=ft.FontWeight.BOLD)),
+                ft.DataColumn(ft.Text("Patient #", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Initials", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Inclusion Date", **Typography.TABLE_HEADER)),
+                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            heading_row_color=ft.Colors.SURFACE_CONTAINER,
+            border=ft.border.all(1, AppColors.BORDER),
+            border_radius=Radius.TABLE,
+            heading_row_color=AppColors.SURFACE_VARIANT,
         )
 
         content = ft.Column(
             [
                 header,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 self.stats_row,
-                ft.Container(height=10),
+                ft.Container(height=Spacing.SM),
                 ft.Container(
                     content=self.patients_table,
                     expand=True,
@@ -175,7 +184,7 @@ class PatientsView(ft.Container):
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=20, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
 
         self._load_patients()
 
@@ -202,21 +211,16 @@ class PatientsView(ft.Container):
         self.patients_table.rows.clear()
         for patient in patients:
             status = patient.get("status", "Screening")
-            status_color = self.STATUS_COLORS.get(status, "#777777")
 
             row = ft.DataRow(
                 cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", ""))),
-                    ft.DataCell(ft.Text(patient.get("initials", ""))),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(status, color=ft.Colors.WHITE, size=12),
-                            bgcolor=status_color,
-                            border_radius=4,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                        )
-                    ),
-                    ft.DataCell(ft.Text(str(patient.get("inclusion_date", "") or "-"))),
+                    ft.DataCell(ft.Text(patient.get("patient_number", ""), **Typography.TABLE_CELL)),
+                    ft.DataCell(ft.Text(patient.get("initials", ""), **Typography.TABLE_CELL)),
+                    ft.DataCell(StatusBadge.patient_status(status)),
+                    ft.DataCell(ft.Text(
+                        str(patient.get("inclusion_date", "") or "-"),
+                        **Typography.TABLE_CELL,
+                    )),
                     ft.DataCell(
                         ft.Row(
                             [
@@ -229,7 +233,7 @@ class PatientsView(ft.Container):
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE,
                                     icon_size=18,
-                                    icon_color=ft.Colors.ERROR,
+                                    icon_color=AppColors.ERROR,
                                     on_click=lambda e, p=patient: self._delete_patient(p),
                                     tooltip="Delete",
                                 ),
@@ -246,27 +250,13 @@ class PatientsView(ft.Container):
         counts = self.patient_queries.count_by_status()
         total = sum(counts.values())
 
-        self.stats_row.controls.clear()
-
-        stats = [
-            ("Total", total, ft.Colors.PRIMARY),
-            ("Screening", counts.get("Screening", 0), "#f0ad4e"),
-            ("Included", counts.get("Included", 0), "#5cb85c"),
-            ("Completed", counts.get("Completed", 0), "#5bc0de"),
-            ("Withdrawn", counts.get("Withdrawn", 0), "#d9534f"),
+        self.stats_row.controls = [
+            StatChip("Total", str(total), AppColors.INFO),
+            StatChip("Screening", str(counts.get("Screening", 0)), AppColors.PATIENT_SCREENING),
+            StatChip("Included", str(counts.get("Included", 0)), AppColors.SUCCESS),
+            StatChip("Completed", str(counts.get("Completed", 0)), AppColors.NEUTRAL),
+            StatChip("Withdrawn", str(counts.get("Withdrawn", 0)), AppColors.ERROR),
         ]
-
-        for label, value, color in stats:
-            chip = ft.Container(
-                content=ft.Row(
-                    [ft.Text(label, size=12), ft.Text(str(value), weight=ft.FontWeight.BOLD, color=color)],
-                    spacing=5,
-                ),
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                border_radius=20,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-            )
-            self.stats_row.controls.append(chip)
 
     def _on_search(self, e):
         self._load_patients(
@@ -313,27 +303,20 @@ class PatientsView(ft.Container):
         self.page.open(dialog)
 
     def _delete_patient(self, patient: Dict):
-        def confirm_delete(e):
+        def on_confirm():
             try:
                 self.patient_queries.delete(patient["id"])
                 self._load_patients(self.search_field.value, self.status_filter.value)
                 self.patients_table.update()
                 self.stats_row.update()
-                dialog.open = False
-                self.page.update()
             except Exception as ex:
                 self.page.open(ft.SnackBar(content=ft.Text(f"Error: {ex}")))
 
-        def cancel(e):
-            dialog.open = False
-            self.page.update()
-
-        dialog = ft.AlertDialog(
-            title=ft.Text("Confirm Delete"),
-            content=ft.Text(f"Delete patient {patient.get('patient_number')}?"),
-            actions=[
-                ft.TextButton(content=ft.Text("Cancel"), on_click=cancel),
-                ft.Button(content=ft.Text("Delete"), on_click=confirm_delete, bgcolor=ft.Colors.ERROR),
-            ],
+        dialog = ConfirmDialog(
+            title="Confirm Delete",
+            message=f"Delete patient {patient.get('patient_number')}?",
+            confirm_text="Delete",
+            on_confirm=on_confirm,
+            danger=True,
         )
-        self.page.open(dialog)
+        dialog.show(self.page)
