@@ -24,15 +24,22 @@
 - [x] Frame "Documents" : gestion consentements
 - [x] Frame "Queries" : suivi data management
 - [x] Frame "Settings" : configuration étude et visites
-- [ ] Conversion en .exe portable (PyInstaller)
+- [x] Conversion en .exe portable (PyInstaller)
 
 ### Priorité moyenne - Fonctionnalités
-- [ ] Tests unitaires SoaParserService (Format 1 & 2)
+- [ ] Import SoA depuis PDF (pdfplumber ou PyMuPDF)
+- [x] Tests unitaires SoaParserService Python (Format 1 & 2)
 - [ ] Alertes visites hors fenêtre
 - [ ] Génération automatique de rapports (PDF)
 - [ ] Dashboard temps réel dans l'application
 - [ ] Historique des modifications (audit trail)
 - [ ] Import de données existantes (Excel → SQLite)
+
+### Priorité moyenne - UI/UX
+- [ ] Amélioration des graphismes (thème, couleurs, polices)
+- [ ] Icône personnalisée pour l'exe
+- [ ] Splash screen au démarrage
+- [ ] Animations et transitions
 
 ### Priorité basse - Améliorations Excel
 - [ ] Ajouter des graphiques (barres, lignes, camembert)
@@ -42,6 +49,19 @@
 ---
 
 ## Terminé
+
+### Build PyInstaller (v15)
+- [x] Application portable sans installation Python
+- [x] Base de données SQLite à côté du .exe
+- [x] Script build.bat pour rebuild facile
+- [x] Taille exe : ~83 Mo
+
+### Tests unitaires (v15)
+- [x] 43 tests pytest pour SoaParserService
+- [x] Couverture complète Format 1 et Format 2
+- [x] Tests des 6 patterns de fenêtres
+- [x] Tests d'intégration avec fichiers Excel réels
+- [x] Configuration pytest dans requirements.txt
 
 ### Import SoA (v13)
 - [x] Support SoA Format 2 (visites avec jour intégré "V1 D0")

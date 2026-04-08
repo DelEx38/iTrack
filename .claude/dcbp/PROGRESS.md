@@ -1,5 +1,285 @@
 # Journal des sessions
 
+## [2026-04-08] Session 17 - Refactoring vues restantes
+
+### Ce qui a été fait
+
+- [x] `visits.py` : `_update_stats()` → `StatChip` (4 chips)
+- [x] `adverse_events.py` : `_update_stats()` → `StatChip` (5 chips), `_delete_ae()` → `ConfirmDialog`
+- [x] `queries.py` : `_update_stats()` → `StatChip` (5 chips), `_delete_query()` → `ConfirmDialog`
+- [x] `documents.py` : `_update_stats()` → `StatChip`, `_delete_consent()` → `ConfirmDialog`
+- [x] Imports centralisés via `from src.components import ...` (plus d'imports directs depuis sous-modules)
+
+### Fichiers modifiés
+```
+src/views/visits.py
+src/views/adverse_events.py
+src/views/queries.py
+src/views/documents.py
+```
+
+### Prochaines étapes
+- [ ] Import SoA depuis PDF (pdfplumber ou PyMuPDF)
+- [ ] Export PDF des rapports
+- [ ] Alertes visites hors fenêtre
+
+→ **Prochaine session** : Nouvelles fonctionnalités (PDF, alertes)
+
+---
+
+## [2026-04-05] Session 16 - Composants UI génériques + Refactoring
+
+### Ce qui a été fait
+
+#### Nouveaux composants (`src/components/`)
+- [x] `GenericCard` : Carte réutilisable avec 3 variantes (DEFAULT, ELEVATED, OUTLINED)
+  - Props : content, title, icon, actions, variant, padding, expand
+  - Styles automatiques selon la variante (bgcolor, border, shadow)
+
+- [x] `SectionHeader` : Titre de section avec divider
+  - Props : title, icon, action_button, show_divider
+  - Structure : [Icon] Title [Action] + Divider
+
+- [x] `EmptyState` : Affichage quand aucune donnée
+  - Props : title, description, icon, action_button
+  - Centré avec icône 48px
+
+- [x] `ConfirmDialog` : Dialog de confirmation standardisé
+  - Props : title, message, confirm_text, cancel_text, on_confirm, on_cancel, danger
+  - Mode danger = bouton rouge
+  - Méthodes show(page) et close()
+
+- [x] `FormField` : Wrapper TextField avec validation
+  - Props : label, helper, error, required, **textfield_kwargs
+  - Indicateur * rouge si required
+  - Méthodes value (property), set_error(), validate(), focus()
+
+### Fichiers créés
+```
+src/components/
+├── generic_card.py      (carte générique)
+├── section_header.py    (en-tête de section)
+├── empty_state.py       (état vide)
+├── confirm_dialog.py    (dialog de confirmation)
+└── form_field.py        (champ de formulaire)
+```
+
+### Fichiers modifiés
+- `src/components/__init__.py` - Ajout des exports
+
+### Utilisation
+```python
+from src.components import (
+    GenericCard, CardVariant,
+    SectionHeader,
+    EmptyState,
+    ConfirmDialog,
+    FormField,
+)
+
+# Carte avec titre et actions
+card = GenericCard(
+    title="Patients",
+    icon=ft.Icons.PEOPLE,
+    content=patients_list,
+    actions=[save_button],
+    variant=CardVariant.ELEVATED,
+)
+
+# Section avec action
+SectionHeader(
+    title="Informations",
+    icon=ft.Icons.INFO,
+    action_button=edit_button,
+)
+
+# État vide
+EmptyState(
+    title="Aucun patient",
+    description="Ajoutez votre premier patient",
+    icon=ft.Icons.PERSON_ADD,
+    action_button=add_button,
+)
+
+# Confirmation de suppression
+ConfirmDialog(
+    title="Confirmer",
+    message="Supprimer ce patient ?",
+    confirm_text="Supprimer",
+    on_confirm=do_delete,
+    danger=True,
+).show(page)
+
+# Champ de formulaire
+FormField(
+    label="Nom du patient",
+    required=True,
+    helper="Format: NOM Prénom",
+)
+```
+
+#### Refactoring des vues
+
+**dashboard.py** :
+- [x] Sections visites/alertes → `GenericCard` avec titre et icône
+- [x] Messages "No data" → `EmptyState` avec description
+
+**patients.py** :
+- [x] Champs formulaire → `FormField` avec validation automatique
+- [x] Stats manuels → `StatChip`
+- [x] Dialog suppression (30 lignes) → `ConfirmDialog` (10 lignes)
+
+**sites.py** :
+- [x] Champs formulaire → `FormField` avec validation
+- [x] Titres de section → `SectionHeader` avec icônes
+- [x] Stats manuels → `StatChip`
+- [x] Dialog suppression → `ConfirmDialog`
+
+### Fichiers modifiés
+- `src/components/__init__.py` - Ajout des exports
+- `src/views/dashboard.py` - Refactoré avec GenericCard, EmptyState
+- `src/views/patients.py` - Refactoré avec FormField, StatChip, ConfirmDialog
+- `src/views/sites.py` - Refactoré avec FormField, SectionHeader, StatChip, ConfirmDialog
+
+### Résultat
+- Code plus concis et maintenable
+- Validation des formulaires standardisée
+- Dialogs de confirmation uniformisés
+- Statistiques cohérentes entre les vues
+
+### Prochaines étapes
+- [ ] Refactorer visits.py, adverse_events.py, queries.py, documents.py
+- [ ] Support PDF pour import SoA
+- [ ] Export PDF des rapports
+
+→ **Prochaine session** : Continuer le refactoring ou nouvelles fonctionnalités
+
+---
+
+## [2026-03-31] Session 15 - Tests unitaires + Build PyInstaller
+
+### Ce qui a été fait
+
+#### Tests unitaires (`tests/test_soa_parser.py`)
+- [x] 43 tests pytest couvrant toutes les fonctionnalités
+- [x] Tests `_is_visit_header` : 11 tests (V1-V25, Screening, Baseline, EOT, FU, français)
+- [x] Tests `_extract_visit_name` : 7 tests (Format 1, Format 2, parenthèses)
+- [x] Tests `_parse_window` : 11 tests (6 patterns de fenêtres)
+- [x] Tests `VisitConfig` : 4 tests (dataclass, to_dict)
+- [x] Tests d'intégration Format 1 & 2
+- [x] Tests gestion d'erreurs
+
+#### Build PyInstaller - Application portable
+- [x] Fonction `get_app_path()` pour chemin DB compatible PyInstaller
+- [x] Base de données à côté du .exe (`data/etude.db`)
+- [x] Fichier spec PyInstaller (`clinical_tracker.spec`)
+- [x] Script de build (`build.bat`)
+- [x] Build réussi : `ClinicalStudyTracker.exe` (~83 Mo)
+
+### Fichiers créés
+```
+tests/
+├── __init__.py
+└── test_soa_parser.py    (43 tests)
+
+clinical_tracker.spec     (config PyInstaller)
+build.bat                 (script de build)
+dist/
+└── ClinicalStudyTracker.exe  (application portable)
+```
+
+### Fichiers modifiés
+- `requirements.txt` - Ajout pytest
+- `src/database/models.py` - Fonction `get_app_path()` pour chemin portable
+
+### Distribution
+```
+ClinicalStudyTracker.exe   # L'application (83 Mo)
+data/
+└── etude.db               # Créé au premier lancement
+```
+
+### Résultat
+- Application testée et fonctionnelle
+- Persistance SQLite OK
+- Prêt pour distribution
+
+### Prochaines étapes
+- [ ] Amélioration des graphismes (UI/UX)
+- [ ] Support PDF pour import SoA
+- [ ] Export PDF des rapports
+- [ ] Icône personnalisée pour l'exe
+
+→ **Prochaine session** : Amélioration UI ou nouvelles fonctionnalités
+
+---
+
+## [2026-03-29] Session 14 - Import SoA Excel (Flet)
+
+### Ce qui a été fait
+
+#### SoaParserService Python (`src/services/soa_parser.py`) - NOUVEAU
+- [x] Classe `VisitConfig` : dataclass pour les configurations de visites
+- [x] Classe `SoaParserService` : service complet de parsing SoA
+- [x] Détection automatique de la feuille SoA (par nom ou contenu)
+- [x] Extraction des visites (V1, V2, Screening, Baseline, EOT, FU, etc.)
+- [x] Parsing des jours cibles (D0, D7, Day 14, J0, J28, Jour X)
+- [x] Parsing de 6 patterns de fenêtres (±3, +/-3, -2/+5, -2 to +5, (-2,+5))
+- [x] Support Format 1 (jour/fenêtre sur lignes séparées)
+- [x] Support Format 2 (jour intégré dans header : "V1 D0", "V2 D7±2")
+- [x] Extraction des procédures (lignes avec X ou checkmarks)
+
+#### SoaPreviewDialog (`src/views/settings.py`)
+- [x] Dialogue de preview des visites détectées
+- [x] Checkboxes pour sélectionner les visites à importer
+- [x] Affichage Visit Name, Target Day, Window
+
+#### Intégration Settings
+- [x] Bouton "Import from SoA" dans l'onglet Visits
+- [x] FilePicker pour sélectionner le fichier Excel
+- [x] Import avec mise à jour ou création des visites
+- [x] Message de confirmation avec compteur
+
+#### Adaptations Flet 0.83+
+- [x] FilePicker est un **Service** (pas un Control) → `page.services.append()`
+- [x] `pick_files()` est **async** → `await file_picker.pick_files()`
+- [x] `page.open()` n'existe plus → fonctions helper `show_snackbar()` et `show_dialog()`
+- [x] Snackbars via `page.overlay` + `snackbar.open = True`
+- [x] Dialogues via `page.overlay` + `dialog.open = True`
+
+### Fichiers créés
+```
+src/services/
+├── __init__.py         (nouveau)
+└── soa_parser.py       (nouveau)
+
+output/
+├── test_soa.xlsx       (fichier test Format 1)
+└── test_soa_format2.xlsx (fichier test Format 2)
+```
+
+### Fichiers modifiés
+- `src/views/settings.py` - Import SoA + adaptations Flet 0.83+
+
+### Tests effectués
+| Test | Résultat |
+|------|----------|
+| Parsing Format 1 (lignes Day/Window) | 8 visites |
+| Parsing Format 2 (jours intégrés) | 7 visites |
+| Fenêtres symétriques (±3) | OK |
+| Fenêtres asymétriques (-3/+5) | OK |
+| Jours négatifs (D-28) | OK |
+| Import base de données | OK |
+
+### Prochaines étapes
+- [ ] Support PDF (via pdfplumber ou PyMuPDF)
+- [ ] Tests unitaires SoaParserService
+- [ ] Export PDF des rapports
+
+→ **Prochaine session** : Tests ou nouvelles fonctionnalités
+
+---
+
 ## [2026-03-25] Session 13 - SoA Format 2
 
 ### Ce qui a été fait
