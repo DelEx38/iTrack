@@ -160,7 +160,12 @@ class SoaParserService:
 
     def _parse_soa_sheet(self, sheet: Worksheet) -> None:
         """Parse une feuille SoA pour extraire les visites."""
-        # Trouver la ligne header avec les visites
+        # Détecter le format et dispatcher
+        if self._is_format_week(sheet):
+            self._parse_format_week(sheet)
+            return
+
+        # Trouver la ligne header avec les visites (Format 1 & 2)
         header_row, visit_cols = self._find_visit_header(sheet)
         if not header_row:
             raise ValueError("Impossible de trouver la ligne des visites")
@@ -183,6 +188,109 @@ class SoaParserService:
             self.visits.append(visit)
 
         # Extraire les procédures (lignes avec X)
+        self._extract_procedures(sheet, header_row, visit_cols)
+
+    def _is_format_week(self, sheet: Worksheet) -> bool:
+        """
+        Détecte le Format Week : ligne avec 'Week' en colonne 2 suivi de valeurs numériques.
+
+        Exemple TRANSTELLAR :
+            Col1='Clinic Visit', Col2='Week', Col3=0, Col4=8, Col5=16 ...
+        """
+        for row_idx in range(1, 10):
+            col2 = sheet.cell(row=row_idx, column=2).value
+            if col2 and str(col2).strip().lower() == "week":
+                # Vérifier que les colonnes suivantes contiennent des entiers
+                numeric_count = 0
+                for col_idx in range(3, min(sheet.max_column + 1, 15)):
+                    val = sheet.cell(row=row_idx, column=col_idx).value
+                    if isinstance(val, (int, float)):
+                        numeric_count += 1
+                if numeric_count >= 3:
+                    return True
+        return False
+
+    def _parse_format_week(self, sheet: Worksheet) -> None:
+        """
+        Parse le Format Week (ex: TRANSTELLAR).
+
+        Structure :
+            Ligne 1 : 'Clinic Visit' | 'Week' | 0 | 8 | 16 | ... | 'EOT'
+            Ligne 2 : None | ' Window (days)' | None | '±5' | '±5' | ...
+            Lignes suivantes : nom procédure | None | 'X' | None | ...
+        """
+        # Trouver la ligne header (col 2 == 'week')
+        header_row = None
+        for row_idx in range(1, 10):
+            col2 = sheet.cell(row=row_idx, column=2).value
+            if col2 and str(col2).strip().lower() == "week":
+                header_row = row_idx
+                break
+
+        if not header_row:
+            raise ValueError("Format Week : ligne 'Week' introuvable")
+
+        # Trouver la ligne des fenêtres (col 2 contient 'window')
+        window_row = None
+        for row_idx in range(header_row + 1, header_row + 5):
+            col2 = sheet.cell(row=row_idx, column=2).value
+            if col2 and "window" in str(col2).strip().lower():
+                window_row = row_idx
+                break
+
+        # Construire les configs de visites
+        visit_cols: Dict[int, None] = {}  # col_idx -> None (pour _extract_procedures)
+        last_numeric_day = 0
+
+        for col_idx in range(3, sheet.max_column + 1):
+            cell_val = sheet.cell(row=header_row, column=col_idx).value
+            if cell_val is None:
+                continue
+
+            # Calculer le jour cible
+            if isinstance(cell_val, (int, float)):
+                week = int(cell_val)
+                visit_name = f"W{week}"
+                target_day = week * 7
+                last_numeric_day = max(last_numeric_day, target_day)
+            elif str(cell_val).strip().upper() in ("EOT", "EOS", "FU", "FOLLOW-UP"):
+                visit_name = str(cell_val).strip()
+                target_day = None  # Calculé après
+            else:
+                continue
+
+            # Extraire la fenêtre depuis la ligne Window
+            window_before, window_after = 0, 0
+            if window_row:
+                win_val = sheet.cell(row=window_row, column=col_idx).value
+                if win_val is not None:
+                    if isinstance(win_val, (int, float)):
+                        window_before = window_after = int(win_val)
+                    else:
+                        window = self._parse_window(str(win_val))
+                        if window:
+                            window_before, window_after = window
+                        else:
+                            # Fallback : extraire uniquement le nombre
+                            num_match = re.search(r"(\d+)", str(win_val))
+                            if num_match:
+                                val = int(num_match.group(1))
+                                window_before = window_after = val
+
+            visit_cols[col_idx] = None
+            self.visits.append(VisitConfig(
+                visit_name=visit_name,
+                target_day=target_day,  # type: ignore[arg-type]
+                window_before=window_before,
+                window_after=window_after,
+            ))
+
+        # Résoudre les jours cibles des visites spéciales (EOT etc.)
+        for visit in self.visits:
+            if visit.target_day is None:
+                visit.target_day = last_numeric_day
+
+        # Extraire les procédures
         self._extract_procedures(sheet, header_row, visit_cols)
 
     def _find_visit_header(self, sheet: Worksheet) -> Tuple[int, Dict]:

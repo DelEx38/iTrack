@@ -382,3 +382,105 @@ class TestGetProcedures:
     def test_procedures_empty_before_parse(self, parser):
         """Procédures vides avant parsing."""
         assert parser.get_procedures() == []
+
+
+# =============================================================================
+# Tests Format Week (ex: TRANSTELLAR)
+# =============================================================================
+
+@pytest.fixture
+def format_week_file():
+    """Fichier Excel Format Week (semaines numériques + ligne Window)."""
+    path = Path(__file__).parent / "fixtures" / "test_soa_format_week.xlsx"
+    if not path.exists():
+        pytest.skip(f"Fichier de test manquant: {path}")
+    return path.read_bytes()
+
+
+class TestIsFormatWeek:
+    """Tests pour la détection du Format Week."""
+
+    def test_detected_on_transtellar(self, parser, format_week_file):
+        """Le fichier TRANSTELLAR est détecté comme Format Week."""
+        from openpyxl import load_workbook
+        from io import BytesIO
+        wb = load_workbook(filename=BytesIO(format_week_file), data_only=True)
+        sheet = wb[wb.sheetnames[0]]
+        assert parser._is_format_week(sheet) is True
+
+    def test_not_detected_on_format1(self, parser, format1_file):
+        """Le Format 1 n'est pas détecté comme Format Week."""
+        from openpyxl import load_workbook
+        from io import BytesIO
+        wb = load_workbook(filename=BytesIO(format1_file), data_only=True)
+        sheet = wb[wb.sheetnames[0]]
+        assert parser._is_format_week(sheet) is False
+
+
+class TestParseFormatWeek:
+    """Tests d'intégration pour Format Week."""
+
+    def test_parse_returns_28_visits(self, parser, format_week_file):
+        """TRANSTELLAR a 28 visites (W0 à W204 + EOT)."""
+        visits = parser.parse_file(format_week_file)
+        assert len(visits) == 28
+
+    def test_visit_names_start_with_W(self, parser, format_week_file):
+        """Les visites numériques sont nommées W0, W8, W16..."""
+        visits = parser.parse_file(format_week_file)
+        week_visits = [v for v in visits if v.visit_name.startswith("W")]
+        assert len(week_visits) == 27  # W0 à W204
+
+    def test_eot_visit_present(self, parser, format_week_file):
+        """EOT est présent comme visite spéciale."""
+        visits = parser.parse_file(format_week_file)
+        eot = next((v for v in visits if v.visit_name == "EOT"), None)
+        assert eot is not None
+
+    def test_days_are_weeks_times_7(self, parser, format_week_file):
+        """W8 = Jour 56, W16 = Jour 112, W24 = Jour 168."""
+        visits = parser.parse_file(format_week_file)
+        by_name = {v.visit_name: v for v in visits}
+        assert by_name["W8"].target_day == 56
+        assert by_name["W16"].target_day == 112
+        assert by_name["W24"].target_day == 168
+        assert by_name["W56"].target_day == 392
+
+    def test_w0_has_no_window(self, parser, format_week_file):
+        """W0 (baseline) n'a pas de fenêtre."""
+        visits = parser.parse_file(format_week_file)
+        w0 = next(v for v in visits if v.visit_name == "W0")
+        assert w0.window_before == 0
+        assert w0.window_after == 0
+
+    def test_windows_extracted(self, parser, format_week_file):
+        """W8 a une fenêtre ±5 jours."""
+        visits = parser.parse_file(format_week_file)
+        w8 = next(v for v in visits if v.visit_name == "W8")
+        assert w8.window_before == 5
+        assert w8.window_after == 5
+
+    def test_larger_windows_extracted(self, parser, format_week_file):
+        """W24, W204 ont des fenêtres ±7 et ±10 jours."""
+        visits = parser.parse_file(format_week_file)
+        by_name = {v.visit_name: v for v in visits}
+        assert by_name["W24"].window_before == 7
+        assert by_name["W204"].window_before == 10
+
+    def test_eot_day_equals_last_numeric_day(self, parser, format_week_file):
+        """EOT hérite du jour de la dernière visite numérique (W204 = Jour 1428)."""
+        visits = parser.parse_file(format_week_file)
+        eot = next(v for v in visits if v.visit_name == "EOT")
+        assert eot.target_day == 1428
+
+    def test_procedures_extracted(self, parser, format_week_file):
+        """Les procédures sont extraites (36 attendues)."""
+        parser.parse_file(format_week_file)
+        procedures = parser.get_procedures()
+        assert len(procedures) == 36
+
+    def test_known_procedure_present(self, parser, format_week_file):
+        """'Informed consent' est dans les procédures."""
+        parser.parse_file(format_week_file)
+        procedures = parser.get_procedures()
+        assert "Informed consent" in procedures
