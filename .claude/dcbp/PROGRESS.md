@@ -1,5 +1,243 @@
 # Journal des sessions
 
+## [2026-04-13] Session 25 - UI/UX : thème, transitions, landing
+
+### Ce qui a été fait
+- [x] **Thème Material 3 complet** (`app.py`)
+  - Import `AppColors` dans `app.py`
+  - `page.bgcolor = AppColors.SURFACE` (#1E1E1E)
+  - `dark_theme` avec `ft.ColorScheme` calé sur `AppColors` : primary, surface, surface_variant, on_surface, on_surface_variant, outline, outline_variant, error, secondary
+  - `theme` light conservé (use_material3=True), `dark_theme` piloté par ColorScheme
+- [x] **Transitions de navigation animées** (`app.py`)
+  - `view_container` remplacé par `ft.AnimatedSwitcher(transition=FADE, duration=180)`
+  - `switch_in_curve=EASE_OUT`, `switch_out_curve=EASE_IN`
+  - `_switch_view()` inchangé côté API
+- [x] **Landing page modernisée** (`views/landing.py`)
+  - Header : logo icône médicale dans carré bleu arrondi + "iTrack" H2 + sous-titre
+  - `StudyCard` : barre accent 3px en haut (couleur de phase via `AppColors.get_phase_color`)
+  - Nom d'étude coloré avec la couleur d'accent de la phase
+  - Footer "Open →" discret en bas à droite de chaque carte
+  - Hover : bordure de la couleur d'accent + ombre colorée (plus immersif)
+  - Largeur carte 300 → 320px
+
+### Fichiers modifiés
+```
+src/app.py              (thème ColorScheme + AnimatedSwitcher)
+src/views/landing.py    (header logo + StudyCard améliorée)
+```
+
+### Prochaines étapes
+- [ ] Graphiques dashboard (barres/courbes patients, visites)
+- [ ] Amélioration typographie / polices (Google Fonts via Flet)
+
+→ **Prochaine session** : graphiques dashboard ou polices
+
+---
+
+## [2026-04-12] Session 24 - Splash screen + icône exe
+
+### Ce qui a été fait
+- [x] `assets/icon.ico` + `assets/icon.png` générés via Pillow (croix médicale blanche sur fond bleu #1565C0, 7 tailles ICO)
+- [x] Splash screen au démarrage (`app.py`)
+  - Logo icône + titre "iTrack" + sous-titre + ProgressRing + texte de statut + version
+  - Initialisation DB asynchrone (`_initialize_async`) — fond `#0D1117`
+  - Switch automatique vers la landing une fois prêt
+- [x] `page.window.icon` branché sur `assets/icon.png`
+- [x] `clinical_tracker.spec` : `icon=assets/icon.ico` + datas `assets/`
+- [x] Spec : `services.excel_importer` ajouté aux hiddenimports
+
+### Fichiers créés/modifiés
+```
+assets/icon.ico            (nouveau)
+assets/icon.png            (nouveau)
+src/app.py                 (splash + async init + icône fenêtre)
+clinical_tracker.spec      (icône exe + assets inclus)
+```
+
+### Prochaines étapes
+- [ ] UI/UX : thème, animations, transitions
+
+→ **Prochaine session** : améliorations UI/UX
+
+---
+
+## [2026-04-12] Session 23 - Import Excel → SQLite
+
+### Ce qui a été fait
+- [x] `ExcelImporter` service (`src/services/excel_importer.py`)
+  - `preview(file_bytes)` → `ImportPreview` (comptage sans import)
+  - `import_data(...)` → `ImportResult` avec stratégie skip/update
+  - Sheets reconnus : "Settings" → visit_config, "Suivi Patients" → patients+visits, "Événements Indésirables" → adverse_events
+  - Mapping sévérité/outcome/causalité FR→EN
+  - Parsing dates flexibles (date Excel, ISO, DD/MM/YYYY, DD-MMM-YY)
+- [x] `SettingsView` : onglet "Import Data" (4e onglet)
+  - Bouton FilePicker `.xlsx`
+  - Dialog preview avec stats détectées + checkboxes par entité + dropdown conflit
+  - Résultat affiché en SnackBar
+
+### Fichiers créés/modifiés
+```
+src/services/excel_importer.py   (nouveau)
+src/views/settings.py            (+ onglet Import Data)
+```
+
+### Prochaines étapes
+- [ ] Splash screen + icône exe
+- [ ] UI/UX : thème, animations
+
+→ **Prochaine session** : splash screen / icône exe ou améliorations UI
+
+---
+
+## [2026-04-10] Session 22 - Revue architecturale & corrections liaisons vues↔DB
+
+### Ce qui a été fait
+- [x] Revue complète des liaisons entre vues et base de données
+- [x] Fix 1 : `PatientsView` — supprimé params morts `visit_queries` / `consent_queries`
+- [x] Fix 2 : `VisitQueries.get_patient_visits()` — supprimé SQL dupliqué, alias vers `get_by_patient()`
+- [x] Fix 3 : `MonitoringQueries.create()` / `delete()` — ajout logs audit manquants
+- [x] Fix 4 : `_export_excel()` — nombre réel de visites/patients depuis la DB
+- [x] Fix 5 : Dashboard "Upcoming Visits" — visites à réaliser dans les 14 prochains jours
+  - Couleur rouge ≤3j, orange ≤7j, bleu >7j
+  - Triées par date, max 8 entrées affichées
+- [x] 55 tests passent (régression zéro)
+
+### Fichiers modifiés
+```
+src/views/patients.py      (suppression params morts)
+src/views/dashboard.py     (+ _refresh_upcoming_visits())
+src/database/queries.py    (alias get_patient_visits + audit monitoring)
+src/app.py                 (export Excel avec vraies données, params PatientsView)
+```
+
+### Prochaines étapes
+- [ ] Import données existantes (Excel → SQLite)
+- [ ] Splash screen + icône exe
+
+→ **Prochaine session** : import Excel → SQLite ou finitions exe
+
+---
+
+## [2026-04-10] Session 21 - Alertes fenêtres de visite
+
+### Ce qui a été fait
+- [x] `WindowAlertService` : calcul cross-patients des 3 types d'alertes (`src/services/window_alert.py`)
+  - `OUT_OF_WINDOW` : visite réalisée hors fenêtre (rouge)
+  - `OVERDUE` : visite non réalisée, fenêtre fermée (orange)
+  - `UPCOMING` : fenêtre se ferme dans ≤7 jours (bleu)
+  - Tri automatique par sévérité puis par numéro patient
+- [x] `dashboard.py` : section "Alerts & Notifications" peuplée en temps réel
+  - Icône + patient + visite + label de l'alerte, limité à 8 entrées
+  - Suffix "... and N more" si débordement
+  - Appelé depuis `refresh_data()`
+- [x] `visits.py` : lignes OUT_OF_WINDOW avec fond rouge transparent + icône warning
+
+### Fichiers créés/modifiés
+```
+src/services/window_alert.py   (nouveau)
+src/views/dashboard.py         (+ _refresh_alerts())
+src/views/visits.py            (+ highlight lignes OUT)
+```
+
+### Prochaines étapes
+- [ ] Import données existantes (Excel → SQLite)
+- [ ] Splash screen + icône exe
+
+→ **Prochaine session** : import Excel → SQLite ou finitions exe
+
+---
+
+## [2026-04-10] Session 20 - Audit Trail (GCP)
+
+### Ce qui a été fait
+- [x] `AuditService` : service statique avec `log()` + `get_logs()` avec filtres (`src/database/audit.py`)
+- [x] Instrumentation CRUD :
+  - `PatientQueries` : CREATE (patient_number, status, site), UPDATE (old→new par champ), DELETE
+  - `VisitQueries.record_visit` : CREATE (patient, visite, date, statut)
+  - `AdverseEventQueries` : CREATE (term, severity, type), DELETE
+  - `QueryQueries` : CREATE (field, priority), UPDATE status/priority (old→new), DELETE
+- [x] `AuditView` : tableau avec filtre entité/action/recherche + stat chips (total, creates, updates, deletes)
+- [x] Sidebar : item "Audit Trail" avec icône HISTORY
+- [x] `app.py` : `_show_audit()` + navigation
+- [x] 55 tests passent (régression zéro)
+
+### Fichiers créés/modifiés
+```
+src/database/audit.py     (nouveau - AuditService)
+src/database/queries.py   (instrumentation CRUD)
+src/views/audit.py        (nouveau - AuditView)
+src/components/sidebar.py (+ Audit Trail)
+src/app.py                (+ navigation + AuditView import)
+```
+
+### Prochaines étapes
+- [ ] Alertes visites hors fenêtre
+
+→ **Prochaine session** : Alertes visites hors fenêtre
+
+---
+
+## [2026-04-10] Session 19 - Export PDF rapport
+
+### Ce qui a été fait
+- [x] `ReportGenerator` : générateur PDF complet (`src/services/report_generator.py`)
+  - Page de garde (étude, sponsor, protocole, date)
+  - Résumé : blocs stats colorés + tableau patients par statut
+  - Tableau patients (numéro, initiales, statut, site, date naissance)
+  - Grille visites par patient (X = réalisée, - = non réalisée, max 8 colonnes)
+  - Tableau événements indésirables (EI + EIG, sévérité, outcome)
+  - Tableau queries ouvertes
+  - En-tête et pied de page sur chaque page (numéro de page, date)
+  - Sauts de page automatiques dans les tableaux
+- [x] `requirements.txt` : ajout `fpdf2>=2.7.0`
+- [x] `DashboardView` : bouton "Export PDF" en haut à droite, FilePicker save_file_async
+- [x] `app.py` : passage de `query_queries` et `current_study` au DashboardView
+- [x] Test de génération : PDF 6 Ko valide produit sans erreur
+
+### Fichiers créés/modifiés
+```
+src/services/report_generator.py   (nouveau)
+src/views/dashboard.py             (+ bouton Export PDF)
+src/app.py                         (+ query_queries, current_study au dashboard)
+requirements.txt                   (+ fpdf2)
+```
+
+### Prochaines étapes
+- [ ] Alertes visites hors fenêtre
+- [ ] Audit trail (traçabilité GCP)
+
+→ **Prochaine session** : Alertes visites hors fenêtre
+
+---
+
+## [2026-04-10] Session 18 - Import SoA depuis PDF
+
+### Ce qui a été fait
+- [x] `SoaPdfParser` : nouveau parser PDF via `pdfplumber` (`src/services/soa_pdf_parser.py`)
+  - Réutilise les patterns regex de `SoaParserService` (DAY_PATTERNS, WINDOW_PATTERNS, VISIT_PATTERNS)
+  - Extrait les tableaux pdfplumber, identifie le tableau SoA (≥3 colonnes visite)
+  - Parsing Format 1 (lignes Day/Window séparées) et Format 2 (day intégré dans header)
+- [x] `settings.py` : fix `page.services` → `page.overlay` (bug API Flet)
+- [x] `settings.py` : FilePicker accepte `.xlsx/.xls/.pdf`, route vers le bon parser selon extension
+- [x] `requirements.txt` : ajout `pdfplumber>=0.10.0`
+- [x] Bouton et texte descriptif mis à jour : "Import from SoA (Excel/PDF)"
+- [x] 55 tests passent (régression zéro)
+
+### Fichiers créés/modifiés
+```
+src/services/soa_pdf_parser.py   (nouveau)
+src/views/settings.py            (fix overlay + PDF routing)
+requirements.txt                 (+ pdfplumber)
+```
+
+### Prochaines étapes
+- [ ] Alertes visites hors fenêtre
+- [ ] Export PDF des rapports
+
+→ **Prochaine session** : Alertes visites hors fenêtre ou export PDF
+
+---
+
 ## [2026-04-08] Session 17 - Refactoring vues restantes
 
 ### Ce qui a été fait

@@ -17,11 +17,12 @@ class StudyCard(ft.Container):
         self.study = study
         self._on_click_callback = on_click
 
-        # Badge phase
+        # Couleur d'accent basée sur la phase
         phase = study.get("phase", "")
-        phase_badge = StatusBadge.phase(phase) if phase else ft.Container()
+        self._accent = AppColors.get_phase_color(phase) if phase else AppColors.PRIMARY
 
-        # Numéro d'étude
+        # Badge phase + numéro d'étude
+        phase_badge = StatusBadge.phase(phase) if phase else ft.Container()
         study_number = ft.Text(
             study.get("study_number", ""),
             **Typography.BODY_SMALL,
@@ -32,7 +33,7 @@ class StudyCard(ft.Container):
         study_name = ft.Text(
             study.get("study_name", "Unnamed Study"),
             **Typography.H4,
-            color=AppColors.PRIMARY,
+            color=self._accent,
         )
 
         # Sponsor et pathologie
@@ -49,27 +50,53 @@ class StudyCard(ft.Container):
             spacing=Spacing.LG,
         )
 
-        content = ft.Column(
+        # Corps de la carte
+        body = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row([phase_badge, ft.Container(expand=True), study_number]),
+                    ft.Container(height=Spacing.XS),
+                    study_name,
+                    sponsor,
+                    pathology,
+                    ft.Container(height=Spacing.MD),
+                    stats_row,
+                ],
+                spacing=Spacing.XS,
+            ),
+            padding=Spacing.CARD_PADDING,
+        )
+
+        # Pied de carte "Open →"
+        footer = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Container(expand=True),
+                    ft.Text("Open →", size=11, color=self._accent, weight=ft.FontWeight.W_500),
+                ],
+            ),
+            padding=ft.padding.only(left=Spacing.MD, right=Spacing.MD, bottom=Spacing.SM),
+        )
+
+        full_content = ft.Column(
             [
-                ft.Row([phase_badge, ft.Container(expand=True), study_number]),
-                ft.Container(height=Spacing.SM),
-                study_name,
-                sponsor,
-                pathology,
-                ft.Container(height=Spacing.MD),
-                stats_row,
+                ft.Container(height=3, bgcolor=self._accent),  # barre accent
+                body,
+                footer,
             ],
-            spacing=Spacing.XS,
+            spacing=0,
         )
 
         super().__init__(
-            content=content,
-            padding=Spacing.CARD_PADDING,
+            content=full_content,
             border_radius=Radius.CARD,
             bgcolor=AppColors.SURFACE_VARIANT,
+            border=ft.border.all(1, AppColors.BORDER),
             on_click=self._handle_click,
             on_hover=self._handle_hover,
-            width=300,
+            width=320,
+            animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
         )
 
     def _stat_item(self, icon: str, value: str, label: str) -> ft.Column:
@@ -92,7 +119,19 @@ class StudyCard(ft.Container):
         self._on_click_callback(self.study)
 
     def _handle_hover(self, e):
-        self.bgcolor = AppColors.SURFACE_ELEVATED if e.data == "true" else AppColors.SURFACE_VARIANT
+        if e.data == "true":
+            self.bgcolor = AppColors.SURFACE_ELEVATED
+            self.border = ft.border.all(1, self._accent)
+            self.shadow = ft.BoxShadow(
+                spread_radius=0,
+                blur_radius=20,
+                color=ft.Colors.with_opacity(0.20, self._accent),
+                offset=ft.Offset(0, 4),
+            )
+        else:
+            self.bgcolor = AppColors.SURFACE_VARIANT
+            self.border = ft.border.all(1, AppColors.BORDER)
+            self.shadow = None
         if self.page:
             self.update()
 
@@ -110,8 +149,31 @@ class LandingView(ft.Container):
         self.on_study_select = on_study_select
         self.on_new_study = on_new_study
 
-        # Titre
-        title = ft.Text("Clinical Study Tracker", **Typography.H1)
+        # Header logo + titre
+        logo_row = ft.Row(
+            [
+                ft.Container(
+                    content=ft.Icon(ft.Icons.MEDICAL_SERVICES_ROUNDED, size=28, color=ft.Colors.WHITE),
+                    width=48,
+                    height=48,
+                    border_radius=12,
+                    bgcolor=AppColors.PRIMARY,
+                    alignment=ft.Alignment.CENTER,
+                ),
+                ft.Column(
+                    [
+                        ft.Text("iTrack", **Typography.H2),
+                        ft.Text("Clinical Study Tracker", **Typography.BODY_SMALL, color=AppColors.TEXT_SECONDARY),
+                    ],
+                    spacing=0,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                ),
+            ],
+            spacing=Spacing.MD,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
         subtitle = ft.Text("Select a study to continue", **Typography.BODY_LARGE, color=AppColors.TEXT_SECONDARY)
 
         # Barre de recherche
@@ -119,14 +181,14 @@ class LandingView(ft.Container):
             hint_text="Search studies...",
             prefix_icon=ft.Icons.SEARCH,
             border_radius=Radius.INPUT,
-            width=400,
+            width=380,
             on_change=self._on_search,
         )
 
         # Bouton nouvelle étude
         new_study_btn = ft.Button(
             content=ft.Row(
-                [ft.Icon(ft.Icons.ADD, size=18), ft.Text("+ New Study")],
+                [ft.Icon(ft.Icons.ADD, size=18), ft.Text("New Study")],
                 alignment=ft.MainAxisAlignment.CENTER,
                 spacing=Spacing.XS,
             ),
@@ -137,10 +199,11 @@ class LandingView(ft.Container):
 
         header = ft.Column(
             [
-                ft.Row([title], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Row([logo_row], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Container(height=Spacing.XS),
                 ft.Row([subtitle], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Container(height=Spacing.LG),
-                ft.Row([self.search_field, new_study_btn], alignment=ft.MainAxisAlignment.CENTER, spacing=Spacing.LG),
+                ft.Row([self.search_field, new_study_btn], alignment=ft.MainAxisAlignment.CENTER, spacing=Spacing.MD),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
@@ -165,7 +228,7 @@ class LandingView(ft.Container):
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         # Charger les études
         self._load_studies()

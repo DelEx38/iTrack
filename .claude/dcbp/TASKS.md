@@ -27,19 +27,19 @@
 - [x] Conversion en .exe portable (PyInstaller)
 
 ### Priorité moyenne - Fonctionnalités
-- [ ] Import SoA depuis PDF (pdfplumber ou PyMuPDF)
+- [x] Import SoA depuis PDF (pdfplumber)
 - [x] Tests unitaires SoaParserService Python (Format 1 & 2)
-- [ ] Alertes visites hors fenêtre
-- [ ] Génération automatique de rapports (PDF)
-- [ ] Dashboard temps réel dans l'application
-- [ ] Historique des modifications (audit trail)
-- [ ] Import de données existantes (Excel → SQLite)
+- [x] Alertes visites hors fenêtre
+- [x] Génération automatique de rapports (PDF)
+- [x] Dashboard temps réel dans l'application
+- [x] Historique des modifications (audit trail)
+- [x] Import de données existantes (Excel → SQLite)
 
 ### Priorité moyenne - UI/UX
-- [ ] Amélioration des graphismes (thème, couleurs, polices)
-- [ ] Icône personnalisée pour l'exe
-- [ ] Splash screen au démarrage
-- [ ] Animations et transitions
+- [x] Amélioration des graphismes (thème, couleurs, polices)
+- [x] Icône personnalisée pour l'exe
+- [x] Splash screen au démarrage
+- [x] Animations et transitions
 
 ### Priorité basse - Améliorations Excel
 - [ ] Ajouter des graphiques (barres, lignes, camembert)
