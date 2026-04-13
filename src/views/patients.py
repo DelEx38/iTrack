@@ -7,7 +7,7 @@ import asyncio
 import flet as ft
 from typing import Optional, Dict
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import StatusBadge, StatChip, FormField, ConfirmDialog, SectionHeader
+from src.components import StatusBadge, StatChip, FormField, ConfirmDialog, SectionHeader, AppTable
 
 
 class PatientDialog(ft.AlertDialog):
@@ -108,10 +108,8 @@ class PatientsView(ft.Container):
 
     STATUSES = ["Screening", "Included", "Completed", "Withdrawn", "Screen Failure"]
 
-    def __init__(self, patient_queries, visit_queries, consent_queries):
+    def __init__(self, patient_queries):
         self.patient_queries = patient_queries
-        self.visit_queries = visit_queries
-        self.consent_queries = consent_queries
 
         # Titre
         title = ft.Text("Patients", **Typography.H2)
@@ -156,18 +154,8 @@ class PatientsView(ft.Container):
         self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau des patients
-        self.patients_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Patient #", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Initials", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Inclusion Date", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=[],
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
+        self.patients_table = AppTable(
+            columns=["Patient #", "Initials", "Status", "Inclusion Date", "Actions"],
         )
 
         content = ft.Column(
@@ -176,16 +164,13 @@ class PatientsView(ft.Container):
                 ft.Container(height=Spacing.SM),
                 self.stats_row,
                 ft.Container(height=Spacing.SM),
-                ft.Container(
-                    content=self.patients_table,
-                    expand=True,
-                ),
+                self.patients_table,
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._load_patients()
 
@@ -209,42 +194,34 @@ class PatientsView(ft.Container):
         self._update_stats()
 
         # Mettre à jour le tableau
-        self.patients_table.rows.clear()
+        rows = []
         for patient in patients:
             status = patient.get("status", "Screening")
-
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", ""), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(patient.get("initials", ""), **Typography.TABLE_CELL)),
-                    ft.DataCell(StatusBadge.patient_status(status)),
-                    ft.DataCell(ft.Text(
-                        str(patient.get("inclusion_date", "") or "-"),
-                        **Typography.TABLE_CELL,
-                    )),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, p=patient: self._edit_patient(p),
-                                    tooltip="Edit",
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, p=patient: self._delete_patient(p),
-                                    tooltip="Delete",
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            self.patients_table.rows.append(row)
+            rows.append([
+                ft.Text(patient.get("patient_number", ""), **Typography.TABLE_CELL),
+                ft.Text(patient.get("initials", ""), **Typography.TABLE_CELL),
+                StatusBadge.patient_status(status),
+                ft.Text(str(patient.get("inclusion_date", "") or "-"), **Typography.TABLE_CELL),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, p=patient: self._edit_patient(p),
+                            tooltip="Edit",
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, p=patient: self._delete_patient(p),
+                            tooltip="Delete",
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        self.patients_table.set_rows(rows)
 
     def _update_stats(self):
         """Met à jour les statistiques."""

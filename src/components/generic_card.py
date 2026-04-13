@@ -28,34 +28,65 @@ class GenericCard(ft.Container):
         variant: CardVariant = CardVariant.DEFAULT,
         padding: int = Spacing.CARD_PADDING,
         expand: bool = False,
+        accent_color: str | None = None,
     ):
         """
         Crée une carte générique.
 
         Args:
-            content: Contenu principal de la carte (obligatoire)
-            title: Titre optionnel affiché en haut
-            icon: Icône à côté du titre
-            actions: Liste de boutons en bas de la carte
-            variant: Style de la carte (DEFAULT, ELEVATED, OUTLINED)
-            padding: Padding interne (défaut: Spacing.CARD_PADDING)
-            expand: Si la carte doit s'étendre pour remplir l'espace
+            content:       Contenu principal de la carte (obligatoire)
+            title:         Titre optionnel affiché en haut
+            icon:          Icône à côté du titre
+            actions:       Liste de boutons en bas de la carte
+            variant:       Style de la carte (DEFAULT, ELEVATED, OUTLINED)
+            padding:       Padding interne (défaut: Spacing.CARD_PADDING)
+            expand:        Si la carte doit s'étendre pour remplir l'espace
+            accent_color:  Couleur de la barre d'accent gauche (None = pas de barre)
         """
-        # Styles selon la variante
         bgcolor, border, shadow = self._get_variant_styles(variant)
-
-        # Construction du contenu
         card_content = self._build_content(content, title, icon, actions)
 
-        super().__init__(
-            content=card_content,
-            padding=padding,
-            border_radius=Radius.CARD,
-            bgcolor=bgcolor,
-            border=border,
-            shadow=shadow,
-            expand=expand,
-        )
+        if accent_color:
+            # Barre colorée de 3px à gauche
+            inner = ft.Container(
+                content=card_content,
+                padding=padding,
+                expand=expand,
+            )
+            wrapped = ft.Row(
+                [
+                    ft.Container(
+                        width=3,
+                        bgcolor=accent_color,
+                        border_radius=ft.BorderRadius(
+                            top_left=Radius.CARD, top_right=0,
+                            bottom_left=Radius.CARD, bottom_right=0,
+                        ),
+                    ),
+                    inner,
+                ],
+                spacing=0,
+                expand=expand,
+            )
+            super().__init__(
+                content=wrapped,
+                border_radius=Radius.CARD,
+                bgcolor=bgcolor,
+                border=border,
+                shadow=shadow,
+                expand=expand,
+                clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            )
+        else:
+            super().__init__(
+                content=card_content,
+                padding=padding,
+                border_radius=Radius.CARD,
+                bgcolor=bgcolor,
+                border=border,
+                shadow=shadow,
+                expand=expand,
+            )
 
     def _get_variant_styles(
         self, variant: CardVariant

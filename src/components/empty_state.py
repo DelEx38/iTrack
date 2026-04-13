@@ -71,7 +71,7 @@ class EmptyState(ft.Container):
 
         super().__init__(
             content=content,
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
             padding=Spacing.XXL,
             expand=True,
         )

@@ -5,6 +5,7 @@ Requêtes de base de données pour le suivi d'étude clinique.
 from typing import List, Dict, Any, Optional
 from datetime import date, timedelta
 import sqlite3
+from .audit import AuditService
 
 
 class BaseQueries:
@@ -43,7 +44,10 @@ class PatientQueries(BaseQueries):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (self.study_id, patient_number, initials, birth_date, site_id, status))
         self.conn.commit()
-        return cursor.lastrowid
+        patient_id = cursor.lastrowid
+        AuditService.log(self.conn, "patients", patient_id, "CREATE",
+                         new_value=f"{patient_number} | {status} | site={site_id}")
+        return patient_id
 
     def get_by_id(self, patient_id: int) -> Optional[Dict[str, Any]]:
         """Récupère un patient par son ID."""
@@ -73,6 +77,9 @@ class PatientQueries(BaseQueries):
         if not kwargs:
             return False
 
+        # Lire les anciennes valeurs pour l'audit
+        old = self.get_by_id(patient_id) or {}
+
         fields = ", ".join(f"{k} = ?" for k in kwargs.keys())
         values = list(kwargs.values()) + [patient_id]
 
@@ -82,13 +89,27 @@ class PatientQueries(BaseQueries):
             WHERE id = ?
         """, values)
         self.conn.commit()
+
+        if cursor.rowcount > 0:
+            for field, new_val in kwargs.items():
+                old_val = old.get(field)
+                if str(old_val) != str(new_val):
+                    AuditService.log(self.conn, "patients", patient_id, "UPDATE",
+                                     field_name=field,
+                                     old_value=old_val,
+                                     new_value=new_val)
+
         return cursor.rowcount > 0
 
     def delete(self, patient_id: int) -> bool:
         """Supprime un patient."""
+        patient = self.get_by_id(patient_id)
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
         self.conn.commit()
+        if cursor.rowcount > 0 and patient:
+            AuditService.log(self.conn, "patients", patient_id, "DELETE",
+                             old_value=patient.get("patient_number", str(patient_id)))
         return cursor.rowcount > 0
 
     def count_by_status(self) -> Dict[str, int]:
@@ -211,19 +232,19 @@ class VisitQueries(BaseQueries):
             VALUES (?, ?, ?, ?, ?)
         """, (patient_id, visit_config_id, visit_date, status, comments))
         self.conn.commit()
-        return cursor.lastrowid
+        visit_id = cursor.lastrowid
+        # Récupérer le nom de la visite pour l'audit
+        vc = cursor.execute(
+            "SELECT visit_name FROM visit_config WHERE id = ?", (visit_config_id,)
+        ).fetchone()
+        visit_label = vc[0] if vc else f"config#{visit_config_id}"
+        AuditService.log(self.conn, "visits", visit_id, "CREATE",
+                         new_value=f"patient#{patient_id} | {visit_label} | {visit_date} | {status}")
+        return visit_id
 
     def get_patient_visits(self, patient_id: int) -> List[Dict[str, Any]]:
-        """Récupère toutes les visites d'un patient."""
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT v.*, vc.visit_name, vc.target_day, vc.window_before, vc.window_after
-            FROM visits v
-            JOIN visit_config vc ON v.visit_config_id = vc.id
-            WHERE v.patient_id = ?
-            ORDER BY vc.visit_order
-        """, (patient_id,))
-        return [self._dict_from_row(row) for row in cursor.fetchall()]
+        """Alias de get_by_patient — compatibilité."""
+        return self.get_by_patient(patient_id)
 
     def check_window(self, patient_id: int, visit_config_id: int, visit_date: date) -> Dict[str, Any]:
         """Vérifie si une visite est dans la fenêtre."""
@@ -461,13 +482,23 @@ class AdverseEventQueries(BaseQueries):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (patient_id, ae_term, start_date, end_date, severity, int(is_serious), reporting_date, outcome, causality, notes))
         self.conn.commit()
-        return cursor.lastrowid
+        ae_id = cursor.lastrowid
+        ae_type = "SAE" if is_serious else "AE"
+        AuditService.log(self.conn, "adverse_events", ae_id, "CREATE",
+                         new_value=f"patient#{patient_id} | {ae_term} | {severity} | {ae_type} | {start_date}")
+        return ae_id
 
     def delete(self, ae_id: int) -> bool:
         """Supprime un EI."""
+        ae = self.conn.execute(
+            "SELECT ae_term, severity FROM adverse_events WHERE id = ?", (ae_id,)
+        ).fetchone()
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM adverse_events WHERE id = ?", (ae_id,))
         self.conn.commit()
+        if cursor.rowcount > 0 and ae:
+            AuditService.log(self.conn, "adverse_events", ae_id, "DELETE",
+                             old_value=f"{ae[0]} | {ae[1]}")
         return cursor.rowcount > 0
 
     def get_by_patient(self, patient_id: int) -> List[Dict[str, Any]]:
@@ -583,12 +614,21 @@ class QueryQueries(BaseQueries):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (patient_id, field_name, description, priority, status, response))
         self.conn.commit()
-        return cursor.lastrowid
+        query_id = cursor.lastrowid
+        AuditService.log(self.conn, "queries", query_id, "CREATE",
+                         new_value=f"patient#{patient_id} | {field_name} | {priority}")
+        return query_id
 
     def update(self, query_id: int, **kwargs) -> bool:
         """Met à jour une query."""
         if not kwargs:
             return False
+
+        # Capturer les anciennes valeurs pour l'audit
+        old_row = self.conn.execute(
+            "SELECT status, priority FROM queries WHERE id = ?", (query_id,)
+        ).fetchone()
+        old = dict(old_row) if old_row else {}
 
         fields = ", ".join(f"{k} = ?" for k in kwargs.keys())
         values = list(kwargs.values()) + [query_id]
@@ -596,13 +636,28 @@ class QueryQueries(BaseQueries):
         cursor = self.conn.cursor()
         cursor.execute(f"UPDATE queries SET {fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", values)
         self.conn.commit()
+
+        if cursor.rowcount > 0:
+            for field in ("status", "priority"):
+                if field in kwargs and str(old.get(field)) != str(kwargs[field]):
+                    AuditService.log(self.conn, "queries", query_id, "UPDATE",
+                                     field_name=field,
+                                     old_value=old.get(field),
+                                     new_value=kwargs[field])
+
         return cursor.rowcount > 0
 
     def delete(self, query_id: int) -> bool:
         """Supprime une query."""
+        q = self.conn.execute(
+            "SELECT field_name FROM queries WHERE id = ?", (query_id,)
+        ).fetchone()
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM queries WHERE id = ?", (query_id,))
         self.conn.commit()
+        if cursor.rowcount > 0 and q:
+            AuditService.log(self.conn, "queries", query_id, "DELETE",
+                             old_value=q[0])
         return cursor.rowcount > 0
 
 
@@ -646,7 +701,10 @@ class MonitoringQueries(BaseQueries):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (patient_id, monitoring_date, monitoring_type, findings, actions_required, int(is_completed)))
         self.conn.commit()
-        return cursor.lastrowid
+        entry_id = cursor.lastrowid
+        AuditService.log(self.conn, "monitoring", entry_id, "CREATE",
+                         new_value=f"patient#{patient_id} | {monitoring_date} | {monitoring_type}")
+        return entry_id
 
     def update(self, entry_id: int, **kwargs) -> bool:
         """Met à jour une entrée de monitoring."""
@@ -667,7 +725,13 @@ class MonitoringQueries(BaseQueries):
 
     def delete(self, entry_id: int) -> bool:
         """Supprime une entrée de monitoring."""
+        entry = self.conn.execute(
+            "SELECT monitoring_date, monitoring_type FROM monitoring WHERE id = ?", (entry_id,)
+        ).fetchone()
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM monitoring WHERE id = ?", (entry_id,))
         self.conn.commit()
+        if cursor.rowcount > 0 and entry:
+            AuditService.log(self.conn, "monitoring", entry_id, "DELETE",
+                             old_value=f"{entry[0]} | {entry[1]}")
         return cursor.rowcount > 0

@@ -10,7 +10,12 @@ data/*.db
 
 # Output
 output/*.xlsx
+output/*.pdf
 !output/.gitkeep
+
+# PyInstaller
+build/
+dist/
 
 # IDE
 .vscode/

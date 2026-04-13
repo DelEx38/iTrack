@@ -8,7 +8,7 @@ import flet as ft
 from typing import Optional, Dict, List
 from datetime import datetime
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import StatusBadge, StatChip, ConfirmDialog
+from src.components import StatusBadge, StatChip, ConfirmDialog, AppTable
 
 
 class MonitoringEntryDialog(ft.AlertDialog):
@@ -196,19 +196,8 @@ class MonitoringView(ft.Container):
         self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau
-        self.monitoring_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Patient", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Date", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Type", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Findings", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=[],
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
+        self.monitoring_table = AppTable(
+            columns=["Patient", "Date", "Type", "Findings", "Status", "Actions"],
         )
 
         content = ft.Column(
@@ -217,13 +206,13 @@ class MonitoringView(ft.Container):
                 ft.Container(height=Spacing.SM),
                 self.stats_row,
                 ft.Container(height=Spacing.SM),
-                ft.Container(content=self.monitoring_table, expand=True),
+                self.monitoring_table,
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._load_entries()
 
@@ -251,7 +240,7 @@ class MonitoringView(ft.Container):
         self._update_stats(entries)
 
         # Tableau
-        self.monitoring_table.rows.clear()
+        rows = []
         for entry in entries:
             patient = patients.get(entry["patient_id"], {})
             mon_type = entry.get("monitoring_type", "Other")
@@ -260,7 +249,6 @@ class MonitoringView(ft.Container):
             if len(findings) > 40:
                 findings = findings[:40] + "..."
 
-            # Badge type
             type_badge = ft.Container(
                 content=ft.Text(mon_type, **Typography.BADGE, color=AppColors.TEXT_ON_PRIMARY),
                 bgcolor=self.TYPE_COLORS.get(mon_type, AppColors.NEUTRAL),
@@ -268,40 +256,34 @@ class MonitoringView(ft.Container):
                 padding=Spacing.badge(),
             )
 
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(str(entry.get("monitoring_date", "-")), **Typography.TABLE_CELL)),
-                    ft.DataCell(type_badge),
-                    ft.DataCell(ft.Text(findings, **Typography.TABLE_CELL)),
-                    ft.DataCell(
-                        ft.Icon(
-                            ft.Icons.CHECK_CIRCLE if is_completed else ft.Icons.PENDING,
-                            color=AppColors.SUCCESS if is_completed else AppColors.WARNING,
-                            size=20,
-                        )
-                    ),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, en=entry: self._edit_entry(en),
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, en=entry: self._delete_entry(en),
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            self.monitoring_table.rows.append(row)
+            rows.append([
+                ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL),
+                ft.Text(str(entry.get("monitoring_date", "-")), **Typography.TABLE_CELL),
+                type_badge,
+                ft.Text(findings, **Typography.TABLE_CELL),
+                ft.Icon(
+                    ft.Icons.CHECK_CIRCLE if is_completed else ft.Icons.PENDING,
+                    color=AppColors.SUCCESS if is_completed else AppColors.WARNING,
+                    size=20,
+                ),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, en=entry: self._edit_entry(en),
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, en=entry: self._delete_entry(en),
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        self.monitoring_table.set_rows(rows)
 
     def _update_stats(self, entries: List[Dict]):
         """Met à jour les statistiques."""

@@ -8,7 +8,7 @@ import flet as ft
 from typing import Optional, Dict, List
 from datetime import datetime
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import StatusBadge, StatChip, ConfirmDialog
+from src.components import StatusBadge, StatChip, ConfirmDialog, AppTable
 
 
 class AEDialog(ft.AlertDialog):
@@ -223,20 +223,8 @@ class AdverseEventsView(ft.Container):
         self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau
-        self.ae_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Patient", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("AE Term", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Start", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Severity", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("SAE", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Outcome", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=[],
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
+        self.ae_table = AppTable(
+            columns=["Patient", "AE Term", "Start", "Severity", "SAE", "Outcome", "Actions"],
         )
 
         content = ft.Column(
@@ -245,13 +233,13 @@ class AdverseEventsView(ft.Container):
                 ft.Container(height=Spacing.SM),
                 self.stats_row,
                 ft.Container(height=Spacing.SM),
-                ft.Container(content=self.ae_table, expand=True),
+                self.ae_table,
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._load_ae()
 
@@ -276,7 +264,7 @@ class AdverseEventsView(ft.Container):
         self._update_stats(ae_list)
 
         # Tableau
-        self.ae_table.rows.clear()
+        rows = []
         for ae in ae_list:
             patient = patients.get(ae["patient_id"], {})
             severity = ae.get("severity", "Mild")
@@ -303,42 +291,36 @@ class AdverseEventsView(ft.Container):
                     except Exception:
                         pass
 
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(ae.get("ae_term", ""), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(str(ae.get("start_date", "-")), **Typography.TABLE_CELL)),
-                    ft.DataCell(StatusBadge.ae_severity(severity)),
-                    ft.DataCell(
-                        ft.Text(
-                            sae_indicator,
-                            **Typography.TABLE_CELL,
-                            color=sae_color,
-                            weight=ft.FontWeight.BOLD if is_serious else None,
-                        )
-                    ),
-                    ft.DataCell(StatusBadge.ae_outcome(outcome)),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, a=ae: self._edit_ae(a),
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, a=ae: self._delete_ae(a),
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            self.ae_table.rows.append(row)
+            rows.append([
+                ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL),
+                ft.Text(ae.get("ae_term", ""), **Typography.TABLE_CELL),
+                ft.Text(str(ae.get("start_date", "-")), **Typography.TABLE_CELL),
+                StatusBadge.ae_severity(severity),
+                ft.Text(
+                    sae_indicator,
+                    **Typography.TABLE_CELL,
+                    color=sae_color,
+                    weight=ft.FontWeight.BOLD if is_serious else None,
+                ),
+                StatusBadge.ae_outcome(outcome),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, a=ae: self._edit_ae(a),
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, a=ae: self._delete_ae(a),
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        self.ae_table.set_rows(rows)
 
     def _update_stats(self, ae_list: List[Dict]):
         """Met à jour les statistiques."""

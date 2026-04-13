@@ -7,7 +7,7 @@ from typing import Callable, List, Dict, Optional
 
 
 class NavButton(ft.Container):
-    """Bouton de navigation stylisé."""
+    """Bouton de navigation avec indicateur gauche quand actif."""
 
     def __init__(
         self,
@@ -24,22 +24,27 @@ class NavButton(ft.Container):
         self.icon_widget = ft.Icon(
             icon,
             color=ft.Colors.PRIMARY if selected else ft.Colors.ON_SURFACE_VARIANT,
-            size=20,
+            size=18,
         )
         self.text_widget = ft.Text(
             text,
             color=ft.Colors.PRIMARY if selected else ft.Colors.ON_SURFACE_VARIANT,
-            size=14,
+            size=13,
+            weight=ft.FontWeight.W_500 if selected else ft.FontWeight.NORMAL,
         )
 
         super().__init__(
             content=ft.Row(
                 [self.icon_widget, self.text_widget],
-                spacing=12,
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.padding.symmetric(horizontal=16, vertical=12),
-            border_radius=8,
-            bgcolor=ft.Colors.PRIMARY_CONTAINER if selected else None,
+            padding=ft.padding.only(left=14, right=12, top=10, bottom=10),
+            border_radius=ft.BorderRadius(top_left=0, top_right=8, bottom_left=0, bottom_right=8),
+            border=ft.border.only(
+                left=ft.BorderSide(3, ft.Colors.PRIMARY if selected else ft.Colors.TRANSPARENT)
+            ),
+            bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.PRIMARY) if selected else None,
             on_click=self._handle_click,
             on_hover=self._handle_hover,
         )
@@ -49,7 +54,10 @@ class NavButton(ft.Container):
 
     def _handle_hover(self, e):
         if not self._selected:
-            self.bgcolor = ft.Colors.SURFACE_CONTAINER if e.data == "true" else None
+            self.bgcolor = (
+                ft.Colors.with_opacity(0.05, ft.Colors.PRIMARY)
+                if e.data == "true" else None
+            )
             if self.page:
                 self.update()
 
@@ -58,7 +66,11 @@ class NavButton(ft.Container):
         color = ft.Colors.PRIMARY if selected else ft.Colors.ON_SURFACE_VARIANT
         self.icon_widget.color = color
         self.text_widget.color = color
-        self.bgcolor = ft.Colors.PRIMARY_CONTAINER if selected else None
+        self.text_widget.weight = ft.FontWeight.W_500 if selected else ft.FontWeight.NORMAL
+        self.border = ft.border.only(
+            left=ft.BorderSide(3, ft.Colors.PRIMARY if selected else ft.Colors.TRANSPARENT)
+        )
+        self.bgcolor = ft.Colors.with_opacity(0.08, ft.Colors.PRIMARY) if selected else None
         if self.page:
             self.update()
 
@@ -78,25 +90,41 @@ class Sidebar(ft.Container):
         self.current_view = "dashboard"
         self.nav_buttons: Dict[str, NavButton] = {}
 
-        # Logo
+        # ── Logo iTrack ───────────────────────────────────────────
         logo = ft.Container(
-            content=ft.Column(
+            content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.MEDICAL_SERVICES, size=32, color=ft.Colors.PRIMARY),
-                    ft.Text(
-                        "Clinical Study\nTracker",
-                        size=16,
-                        weight=ft.FontWeight.BOLD,
-                        text_align=ft.TextAlign.CENTER,
+                    ft.Container(
+                        content=ft.Icon(
+                            ft.Icons.MEDICAL_SERVICES_ROUNDED,
+                            size=20,
+                            color=ft.Colors.WHITE,
+                        ),
+                        width=36,
+                        height=36,
+                        border_radius=9,
+                        bgcolor=ft.Colors.PRIMARY,
+                        alignment=ft.Alignment.CENTER,
+                    ),
+                    ft.Column(
+                        [
+                            ft.Text("iTrack", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Text(
+                                "Clinical Tracker",
+                                size=10,
+                                color=ft.Colors.ON_SURFACE_VARIANT,
+                            ),
+                        ],
+                        spacing=0,
                     ),
                 ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=8,
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.padding.symmetric(vertical=20),
+            padding=ft.padding.symmetric(horizontal=14, vertical=14),
         )
 
-        # Sélecteur d'étude
+        # ── Sélecteur d'étude ─────────────────────────────────────
         study_names = self._get_study_names(studies)
         current_name = self._get_current_study_name(current_study)
 
@@ -105,25 +133,27 @@ class Sidebar(ft.Container):
             options=[ft.DropdownOption(key=name, text=name) for name in study_names],
             value=current_name,
             on_select=self._on_study_selected,
-            width=180,
+            width=192,
             dense=True,
         )
 
         study_selector = ft.Container(
             content=self.study_dropdown,
-            padding=ft.padding.symmetric(horizontal=10, vertical=10),
+            padding=ft.padding.symmetric(horizontal=10, vertical=4),
         )
 
-        # Boutons de navigation
+        # ── Navigation ────────────────────────────────────────────
         nav_items = [
-            ("Dashboard", ft.Icons.DASHBOARD, "dashboard"),
+            ("Home", ft.Icons.HOME_ROUNDED, "home"),
+            ("Dashboard", ft.Icons.DASHBOARD_ROUNDED, "dashboard"),
             ("Sites", ft.Icons.LOCATION_ON, "sites"),
-            ("Patients", ft.Icons.PEOPLE, "patients"),
+            ("Patients", ft.Icons.PEOPLE_ROUNDED, "patients"),
             ("Visits", ft.Icons.CALENDAR_TODAY, "visits"),
-            ("Adverse Events", ft.Icons.WARNING, "adverse_events"),
-            ("Documents", ft.Icons.DESCRIPTION, "documents"),
-            ("Queries", ft.Icons.QUESTION_ANSWER, "queries"),
-            ("Monitoring", ft.Icons.VISIBILITY, "monitoring"),
+            ("Adverse Events", ft.Icons.WARNING_ROUNDED, "adverse_events"),
+            ("Documents", ft.Icons.DESCRIPTION_ROUNDED, "documents"),
+            ("Queries", ft.Icons.QUESTION_ANSWER_ROUNDED, "queries"),
+            ("Monitoring", ft.Icons.VISIBILITY_ROUNDED, "monitoring"),
+            ("Audit Trail", ft.Icons.HISTORY_ROUNDED, "audit"),
         ]
 
         nav_buttons_list = []
@@ -137,49 +167,56 @@ class Sidebar(ft.Container):
             self.nav_buttons[key] = btn
             nav_buttons_list.append(btn)
 
-        nav_section = ft.Column(nav_buttons_list, spacing=4)
+        nav_section = ft.Column(
+            nav_buttons_list,
+            spacing=2,
+        )
 
-        # Séparateur
-        separator = ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT)
-
-        # Bouton Export
+        # ── Export Excel ──────────────────────────────────────────
         export_btn = ft.Button(
             content=ft.Row(
-                [ft.Icon(ft.Icons.DOWNLOAD, size=18), ft.Text("Export Excel")],
+                [
+                    ft.Icon(ft.Icons.DOWNLOAD_ROUNDED, size=16),
+                    ft.Text("Export Excel", size=13),
+                ],
                 alignment=ft.MainAxisAlignment.CENTER,
-                spacing=8,
+                spacing=6,
             ),
             on_click=lambda e: self._handle_nav_click("export"),
             bgcolor=ft.Colors.PRIMARY,
             color=ft.Colors.ON_PRIMARY,
-            width=180,
+            width=192,
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
         )
 
-        export_section = ft.Container(
-            content=export_btn,
-            padding=ft.padding.symmetric(horizontal=10, vertical=10),
-        )
-
-        # Bouton Settings
+        # ── Settings ──────────────────────────────────────────────
         settings_btn = NavButton(
             text="Settings",
-            icon=ft.Icons.SETTINGS,
+            icon=ft.Icons.SETTINGS_ROUNDED,
             on_click=lambda name: self._handle_nav_click("settings"),
         )
         self.nav_buttons["settings"] = settings_btn
 
-        # Contenu complet
+        # ── Layout complet ────────────────────────────────────────
         content = ft.Column(
             [
                 logo,
+                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
                 study_selector,
-                ft.Container(content=nav_section, padding=ft.padding.symmetric(horizontal=10)),
+                ft.Container(height=4),
+                ft.Container(
+                    content=nav_section,
+                    padding=ft.padding.only(right=10),
+                ),
                 ft.Container(expand=True),
-                separator,
-                export_section,
+                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
+                ft.Container(
+                    content=export_btn,
+                    padding=ft.padding.symmetric(horizontal=10, vertical=8),
+                ),
                 ft.Container(
                     content=settings_btn,
-                    padding=ft.padding.symmetric(horizontal=10, vertical=10),
+                    padding=ft.padding.only(right=10, bottom=8),
                 ),
             ],
             spacing=0,
@@ -187,10 +224,12 @@ class Sidebar(ft.Container):
 
         super().__init__(
             content=content,
-            width=200,
+            width=220,
             bgcolor=ft.Colors.SURFACE,
             border=ft.border.only(right=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT)),
         )
+
+    # ── Helpers ───────────────────────────────────────────────────
 
     def _get_study_names(self, studies: List[Dict]) -> List[str]:
         if not studies:
@@ -218,7 +257,9 @@ class Sidebar(ft.Container):
     def update_studies(self, studies: List[Dict], current_study: Optional[Dict] = None):
         """Met à jour la liste des études."""
         study_names = self._get_study_names(studies)
-        self.study_dropdown.options = [ft.DropdownOption(key=name, text=name) for name in study_names]
+        self.study_dropdown.options = [
+            ft.DropdownOption(key=name, text=name) for name in study_names
+        ]
         if current_study:
             self.study_dropdown.value = self._get_current_study_name(current_study)
         if self.page:

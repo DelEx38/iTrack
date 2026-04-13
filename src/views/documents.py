@@ -6,7 +6,7 @@ Gestion des documents et consentements.
 import flet as ft
 from typing import Optional, Dict, List
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import StatChip, ConfirmDialog
+from src.components import StatChip, ConfirmDialog, AppTable
 
 
 class ConsentDialog(ft.AlertDialog):
@@ -169,18 +169,8 @@ class DocumentsView(ft.Container):
         self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau des consentements
-        self.consents_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Type", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Version", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Date", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Notes", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=[],
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
+        self.consents_table = AppTable(
+            columns=["Type", "Version", "Date", "Notes", "Actions"],
         )
 
         # Bouton ajouter
@@ -202,13 +192,13 @@ class DocumentsView(ft.Container):
                 ft.Container(height=Spacing.SM),
                 ft.Row([ft.Container(expand=True), self.add_btn]),
                 ft.Container(height=Spacing.SM),
-                ft.Container(content=self.consents_table, expand=True),
+                self.consents_table,
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._load_patients()
 
@@ -244,44 +234,37 @@ class DocumentsView(ft.Container):
         self._update_stats(consents, configs)
 
         # Tableau
-        self.consents_table.rows.clear()
+        rows = []
         for consent in consents:
             config = configs.get(consent.get("consent_config_id"), {})
-
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(config.get("consent_type", "?"), **Typography.TABLE_CELL)),
-                    ft.DataCell(
-                        ft.Container(
-                            content=ft.Text(consent.get("version", "-"), **Typography.BADGE, color=AppColors.TEXT_ON_PRIMARY),
-                            bgcolor=AppColors.PRIMARY,
-                            border_radius=Radius.BADGE,
-                            padding=Spacing.badge(),
-                        )
-                    ),
-                    ft.DataCell(ft.Text(str(consent.get("consent_date", "-")), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(consent.get("notes", "-") or "-", **Typography.TABLE_CELL, max_lines=1)),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, c=consent: self._edit_consent(c),
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, c=consent: self._delete_consent(c),
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            self.consents_table.rows.append(row)
+            rows.append([
+                ft.Text(config.get("consent_type", "?"), **Typography.TABLE_CELL),
+                ft.Container(
+                    content=ft.Text(consent.get("version", "-"), **Typography.BADGE, color=AppColors.TEXT_ON_PRIMARY),
+                    bgcolor=AppColors.PRIMARY,
+                    border_radius=Radius.BADGE,
+                    padding=Spacing.badge(),
+                ),
+                ft.Text(str(consent.get("consent_date", "-")), **Typography.TABLE_CELL),
+                ft.Text(consent.get("notes", "-") or "-", **Typography.TABLE_CELL, max_lines=1),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, c=consent: self._edit_consent(c),
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, c=consent: self._delete_consent(c),
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        self.consents_table.set_rows(rows)
 
     def _update_stats(self, consents: List[Dict], configs: Dict):
         """Met à jour les statistiques."""

@@ -6,8 +6,10 @@ Gestion des paramètres de l'étude.
 import flet as ft
 from typing import Optional, Dict, List
 from src.services.soa_parser import SoaParserService
+from src.services.soa_pdf_parser import SoaPdfParser
+from src.services.excel_importer import ExcelImporter, ImportPreview
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import ConfirmDialog
+from src.components import ConfirmDialog, AppTable
 
 
 
@@ -31,7 +33,7 @@ class SoaPreviewDialog(ft.AlertDialog):
                 [
                     checkbox,
                     ft.Container(
-                        content=ft.Text(visit["visit_name"], **Typography.TABLE_CELL, weight=ft.FontWeight.BOLD),
+                        content=ft.Text(visit["visit_name"], size=13, weight=ft.FontWeight.BOLD),
                         width=100,
                     ),
                     ft.Container(
@@ -306,6 +308,10 @@ class SettingsView(ft.Container):
                     content=ft.Text("Consent Types"),
                     on_click=lambda e: self._select_tab(2),
                 ),
+                ft.TextButton(
+                    content=ft.Text("Import Data"),
+                    on_click=lambda e: self._select_tab(3),
+                ),
             ],
             spacing=Spacing.SM,
         )
@@ -326,7 +332,7 @@ class SettingsView(ft.Container):
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._show_study_info()
 
@@ -344,6 +350,8 @@ class SettingsView(ft.Container):
             self._show_visits()
         elif index == 2:
             self._show_consent_types()
+        elif index == 3:
+            self._show_data_import()
 
         try:
             if self.page:
@@ -432,7 +440,7 @@ class SettingsView(ft.Container):
         # Bouton importer depuis SoA
         import_btn = ft.Button(
             content=ft.Row(
-                [ft.Icon(ft.Icons.UPLOAD_FILE, size=18), ft.Text("Import from SoA")],
+                [ft.Icon(ft.Icons.UPLOAD_FILE, size=18), ft.Text("Import from SoA (Excel/PDF)")],
                 spacing=Spacing.XS,
             ),
             on_click=self._import_from_soa,
@@ -452,50 +460,34 @@ class SettingsView(ft.Container):
         )
 
         # Tableau
+        table = AppTable(columns=["Visit Name", "Target Day", "Window", "Actions"])
         rows = []
         for config in configs:
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(config.get("visit_name", ""), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(f"D{config.get('target_day', 0)}", **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(
-                        f"-{config.get('window_before', 0)} / +{config.get('window_after', 0)}",
-                        **Typography.TABLE_CELL,
-                    )),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, c=config: self._edit_visit_config(c),
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, c=config: self._delete_visit_config(c),
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            rows.append(row)
-
-        table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Visit Name", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Target Day", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Window", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=rows,
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
-        )
+            rows.append([
+                ft.Text(config.get("visit_name", ""), **Typography.TABLE_CELL),
+                ft.Text(f"D{config.get('target_day', 0)}", **Typography.TABLE_CELL),
+                ft.Text(
+                    f"-{config.get('window_before', 0)} / +{config.get('window_after', 0)}",
+                    **Typography.TABLE_CELL,
+                ),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, c=config: self._edit_visit_config(c),
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, c=config: self._delete_visit_config(c),
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        table.set_rows(rows)
 
         self.tab_content.content = ft.Column(
             [
@@ -507,7 +499,7 @@ class SettingsView(ft.Container):
                 ], spacing=Spacing.SM),
                 ft.Container(height=Spacing.SM),
                 ft.Text(
-                    "Import visits from an Excel file containing the Schedule of Assessments (SoA).",
+                    "Import visits from an Excel (.xlsx/.xls) or PDF file containing the Schedule of Assessments (SoA).",
                     **Typography.BODY_SMALL,
                     color=AppColors.TEXT_SECONDARY,
                 ),
@@ -523,21 +515,18 @@ class SettingsView(ft.Container):
             pass
 
     async def _import_from_soa(self, e):
-        """Ouvre le sélecteur de fichier pour importer un SoA Excel."""
-        # Créer le FilePicker et l'ajouter aux services de la page
+        """Ouvre le sélecteur de fichier pour importer un SoA (Excel ou PDF)."""
         file_picker = ft.FilePicker()
-        self.page.services.append(file_picker)
+        self.page.overlay.append(file_picker)
         self.page.update()
 
-        # Ouvrir le dialogue (async dans Flet 0.83+)
-        result = await file_picker.pick_files(
-            dialog_title="Select SoA Excel file",
-            allowed_extensions=["xlsx", "xls"],
+        result = await file_picker.pick_files_async(
+            dialog_title="Sélectionner un fichier SoA (Excel ou PDF)",
+            allowed_extensions=["xlsx", "xls", "pdf"],
             allow_multiple=False,
         )
 
-        # Nettoyer
-        self.page.services.remove(file_picker)
+        self.page.overlay.remove(file_picker)
         self.page.update()
 
         if not result or len(result) == 0:
@@ -549,28 +538,32 @@ class SettingsView(ft.Container):
             return
 
         try:
-            # Lire le fichier
             with open(file_path, "rb") as f:
                 file_bytes = f.read()
 
-            # Parser le SoA
-            parser = SoaParserService()
+            # Router vers le bon parser selon l'extension
+            ext = file_path.lower().rsplit(".", 1)[-1]
+            if ext == "pdf":
+                parser = SoaPdfParser()
+            else:
+                parser = SoaParserService()
+
             visits = parser.parse_file(file_bytes)
 
             if not visits:
                 self.page.open(ft.SnackBar(content=ft.Text("Aucune visite trouvée dans le fichier")))
                 return
 
-            # Convertir en dicts
             visit_dicts = [v.to_dict() for v in visits]
 
-            # Afficher le dialogue de preview
             dialog = SoaPreviewDialog(
                 visits=visit_dicts,
                 on_import=self._on_soa_import,
             )
             self.page.open(dialog)
 
+        except ImportError as ex:
+            self.page.open(ft.SnackBar(content=ft.Text(str(ex))))
         except Exception as ex:
             self.page.open(ft.SnackBar(content=ft.Text(f"Erreur: {ex}")))
 
@@ -673,53 +666,35 @@ class SettingsView(ft.Container):
         )
 
         # Tableau
+        table = AppTable(columns=["Consent Type", "Versions", "Required", "Actions"])
         rows = []
         for config in configs:
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(config.get("consent_type", ""), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(config.get("versions", "1.0"), **Typography.TABLE_CELL)),
-                    ft.DataCell(
-                        ft.Icon(
-                            ft.Icons.CHECK if config.get("is_required") else ft.Icons.CLOSE,
-                            color=AppColors.SUCCESS if config.get("is_required") else AppColors.ERROR,
-                            size=18,
-                        )
-                    ),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, c=config: self._edit_consent_config(c),
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, c=config: self._delete_consent_config(c),
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            rows.append(row)
-
-        table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Consent Type", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Versions", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Required", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=rows,
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
-        )
+            rows.append([
+                ft.Text(config.get("consent_type", ""), **Typography.TABLE_CELL),
+                ft.Text(config.get("versions", "1.0"), **Typography.TABLE_CELL),
+                ft.Icon(
+                    ft.Icons.CHECK if config.get("is_required") else ft.Icons.CLOSE,
+                    color=AppColors.SUCCESS if config.get("is_required") else AppColors.ERROR,
+                    size=18,
+                ),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, c=config: self._edit_consent_config(c),
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, c=config: self._delete_consent_config(c),
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        table.set_rows(rows)
 
         self.tab_content.content = ft.Column(
             [
@@ -776,3 +751,243 @@ class SettingsView(ft.Container):
             on_confirm=on_confirm,
             danger=True,
         ).show(self.page)
+
+    # ─── Onglet Import Data ───────────────────────────────────────────────────
+
+    def _show_data_import(self):
+        """Affiche l'onglet d'import de données Excel."""
+        import_btn = ft.Button(
+            content=ft.Row(
+                [ft.Icon(ft.Icons.UPLOAD_FILE, size=18), ft.Text("Sélectionner un fichier Excel (.xlsx)")],
+                spacing=Spacing.XS,
+            ),
+            on_click=self._import_from_excel,
+            bgcolor=AppColors.PRIMARY,
+            color=AppColors.TEXT_ON_PRIMARY,
+        )
+
+        self.tab_content.content = ft.Column(
+            [
+                ft.Text("Import de données Excel", **Typography.H5),
+                ft.Container(height=Spacing.SM),
+                ft.Text(
+                    "Importe les données d'un fichier Excel généré par iTrack ou compatible.\n"
+                    "Onglets reconnus : Settings (configs visites), Suivi Patients, "
+                    "Événements Indésirables.",
+                    **Typography.BODY_SMALL,
+                    color=AppColors.TEXT_SECONDARY,
+                ),
+                ft.Container(height=Spacing.MD),
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Row(
+                                [ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=AppColors.TEXT_SECONDARY)],
+                            ),
+                            ft.Text(
+                                "• Settings → configurations des visites (fenêtres)\n"
+                                "• Suivi Patients → patients + dates de visite réalisées\n"
+                                "• Événements Indésirables → EI et EIG",
+                                **Typography.BODY_SMALL,
+                                color=AppColors.TEXT_SECONDARY,
+                            ),
+                        ],
+                        spacing=Spacing.XS,
+                    ),
+                    padding=Spacing.MD,
+                    bgcolor=AppColors.SURFACE_VARIANT,
+                    border_radius=8,
+                ),
+                ft.Container(height=Spacing.LG),
+                import_btn,
+            ],
+            spacing=Spacing.SM,
+        )
+
+        try:
+            if self.page:
+                self.tab_content.update()
+        except RuntimeError:
+            pass
+
+    async def _import_from_excel(self, e):
+        """Ouvre le FilePicker puis affiche le dialog de preview/import."""
+        file_picker = ft.FilePicker()
+        self.page.overlay.append(file_picker)
+        self.page.update()
+
+        result = await file_picker.pick_files_async(
+            dialog_title="Sélectionner un fichier Excel iTrack",
+            allowed_extensions=["xlsx"],
+            allow_multiple=False,
+        )
+
+        self.page.overlay.remove(file_picker)
+        self.page.update()
+
+        if not result or not result[0].path:
+            return
+
+        file_path = result[0].path
+        try:
+            with open(file_path, "rb") as f:
+                file_bytes = f.read()
+        except OSError as ex:
+            self.page.open(ft.SnackBar(content=ft.Text(f"Impossible de lire le fichier : {ex}")))
+            return
+
+        try:
+            importer = ExcelImporter()
+            preview = importer.preview(file_bytes)
+        except Exception as ex:
+            self.page.open(ft.SnackBar(content=ft.Text(f"Erreur analyse : {ex}")))
+            return
+
+        if preview.errors:
+            self.page.open(ft.SnackBar(content=ft.Text(preview.errors[0])))
+            return
+
+        # Afficher le dialog de confirmation
+        self._show_import_dialog(file_bytes, preview)
+
+    def _show_import_dialog(self, file_bytes: bytes, preview: ImportPreview):
+        """Affiche le dialog de preview + options avant import."""
+
+        # Checkboxes options
+        cb_visits = ft.Checkbox(label="Configs de visites", value=True)
+        cb_patients = ft.Checkbox(label="Patients et visites réalisées", value=True)
+        cb_ae = ft.Checkbox(label="Événements indésirables (EI/EIG)", value=True)
+
+        # Stratégie de conflit
+        conflict_dropdown = ft.Dropdown(
+            label="Si doublon détecté",
+            value="skip",
+            options=[
+                ft.DropdownOption(key="skip", text="Ignorer (conserver l'existant)"),
+                ft.DropdownOption(key="update", text="Mettre à jour l'existant"),
+            ],
+            width=280,
+        )
+
+        # Stats détectées
+        def stat_row(icon, label, count, color=None):
+            return ft.Row(
+                [
+                    ft.Icon(icon, size=16, color=color or AppColors.TEXT_SECONDARY),
+                    ft.Text(label, **Typography.BODY_SMALL, expand=True),
+                    ft.Text(
+                        str(count),
+                        weight=ft.FontWeight.BOLD,
+                        color=AppColors.PRIMARY if count > 0 else AppColors.TEXT_SECONDARY,
+                        size=13,
+                    ),
+                ],
+                spacing=Spacing.SM,
+            )
+
+        stats_section = ft.Column(
+            [
+                ft.Text("Données détectées dans le fichier :", **Typography.BODY_SMALL,
+                        color=AppColors.TEXT_SECONDARY),
+                ft.Container(height=4),
+                stat_row(ft.Icons.SETTINGS, "Configs de visites", preview.visit_configs),
+                stat_row(ft.Icons.PERSON, "Patients", preview.patients),
+                stat_row(ft.Icons.CALENDAR_TODAY, "Visites réalisées", preview.visits),
+                stat_row(ft.Icons.WARNING_AMBER, "Événements indésirables", preview.adverse_events),
+            ],
+            spacing=4,
+        )
+
+        warnings = []
+        if preview.warnings:
+            for w in preview.warnings:
+                warnings.append(ft.Text(f"⚠ {w}", color=AppColors.WARNING, size=12))
+
+        content_children = [
+            stats_section,
+            ft.Divider(),
+            ft.Text("Que souhaitez-vous importer ?", **Typography.BODY_SMALL),
+            cb_visits,
+            cb_patients,
+            cb_ae,
+            ft.Container(height=Spacing.SM),
+            conflict_dropdown,
+        ]
+        if warnings:
+            content_children += [ft.Divider()] + warnings
+
+        def do_import(ev):
+            dialog.open = False
+            self.page.update()
+            self._run_import(
+                file_bytes=file_bytes,
+                import_visit_configs=cb_visits.value,
+                import_patients=cb_patients.value,
+                import_ae=cb_ae.value,
+                on_conflict=conflict_dropdown.value,
+            )
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Import Excel → SQLite", **Typography.H4),
+            content=ft.Column(
+                content_children,
+                spacing=Spacing.SM,
+                tight=True,
+                width=380,
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Annuler"),
+                    on_click=lambda ev: setattr(dialog, "open", False) or self.page.update(),
+                ),
+                ft.Button(
+                    content=ft.Text("Importer"),
+                    on_click=do_import,
+                    bgcolor=AppColors.PRIMARY,
+                    color=AppColors.TEXT_ON_PRIMARY,
+                ),
+            ],
+        )
+        self.page.open(dialog)
+
+    def _run_import(
+        self,
+        file_bytes: bytes,
+        import_visit_configs: bool,
+        import_patients: bool,
+        import_ae: bool,
+        on_conflict: str,
+    ):
+        """Exécute l'import et affiche le résultat."""
+        if not self.current_study:
+            self.page.open(ft.SnackBar(content=ft.Text("Aucune étude sélectionnée")))
+            return
+
+        try:
+            importer = ExcelImporter()
+            result = importer.import_data(
+                file_bytes=file_bytes,
+                study_id=self.current_study["id"],
+                conn=self.db.connection,
+                import_visit_configs=import_visit_configs,
+                import_patients=import_patients,
+                import_ae=import_ae,
+                on_conflict=on_conflict,
+            )
+        except Exception as ex:
+            self.page.open(ft.SnackBar(content=ft.Text(f"Erreur import : {ex}")))
+            return
+
+        if result.errors:
+            msg = f"Import terminé avec erreurs : {result.errors[0]}"
+        else:
+            msg = result.summary()
+
+        self.page.open(ft.SnackBar(
+            content=ft.Text(msg),
+            duration=4000,
+        ))
+
+        # Rafraîchir l'onglet visits si des configs ont été importées
+        if import_visit_configs and result.visit_configs_updated:
+            self._show_data_import()

@@ -7,7 +7,7 @@ import flet as ft
 from typing import Optional, Dict
 from datetime import datetime, timedelta
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import StatusBadge, StatChip
+from src.components import StatusBadge, StatChip, AppTable
 
 
 class VisitDialog(ft.AlertDialog):
@@ -155,20 +155,8 @@ class VisitsView(ft.Container):
         self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Grille des visites
-        self.visits_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Visit", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Day", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Target Date", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actual Date", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Window", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=[],
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
+        self.visits_table = AppTable(
+            columns=["Visit", "Day", "Target Date", "Actual Date", "Window", "Status", "Actions"],
         )
 
         # Légende
@@ -205,13 +193,13 @@ class VisitsView(ft.Container):
                 ft.Container(height=Spacing.SM),
                 legend,
                 ft.Container(height=Spacing.SM),
-                ft.Container(content=self.visits_table, expand=True),
+                self.visits_table,
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._load_patients()
 
@@ -259,7 +247,7 @@ class VisitsView(ft.Container):
         out_window = 0
         pending = len(visit_configs) - len(visits)
 
-        self.visits_table.rows.clear()
+        rows = []
 
         for config in visit_configs:
             visit = visits_by_config.get(config["id"])
@@ -303,36 +291,34 @@ class VisitsView(ft.Container):
             if target_day == 0:
                 visit_name += " (REF)"
 
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(
+            is_out = window_color == AppColors.ERROR
+            rows.append({
+                "cells": [
+                    ft.Text(
                         visit_name,
                         **Typography.TABLE_CELL,
                         weight=ft.FontWeight.BOLD if target_day == 0 else None,
                         color=AppColors.INFO if target_day == 0 else None,
-                    )),
-                    ft.DataCell(ft.Text(f"D{target_day}", **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(target_date, **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(
-                        str(visit.get("visit_date", "-")) if visit else "-",
-                        **Typography.TABLE_CELL,
-                    )),
-                    ft.DataCell(
-                        ft.Text(window_check, color=window_color, **Typography.TABLE_CELL)
-                        if window_color else ft.Text(window_check, **Typography.TABLE_CELL)
                     ),
-                    ft.DataCell(StatusBadge.visit_status(status)),
-                    ft.DataCell(
-                        ft.IconButton(
-                            icon=ft.Icons.EDIT,
-                            icon_size=18,
-                            on_click=lambda e, c=config, v=visit: self._record_visit(c, v),
-                            tooltip="Record/Edit",
-                        )
+                    ft.Text(f"D{target_day}", **Typography.TABLE_CELL),
+                    ft.Text(target_date, **Typography.TABLE_CELL),
+                    ft.Text(str(visit.get("visit_date", "-")) if visit else "-", **Typography.TABLE_CELL),
+                    ft.Row([
+                        ft.Icon(ft.Icons.WARNING_ROUNDED, size=14, color=AppColors.ERROR) if is_out else ft.Container(width=0),
+                        ft.Text(window_check, color=window_color, **Typography.TABLE_CELL)
+                        if window_color else ft.Text(window_check, **Typography.TABLE_CELL),
+                    ], spacing=4, tight=True),
+                    StatusBadge.visit_status(status),
+                    ft.IconButton(
+                        icon=ft.Icons.EDIT,
+                        icon_size=18,
+                        on_click=lambda e, c=config, v=visit: self._record_visit(c, v),
+                        tooltip="Record/Edit",
                     ),
                 ],
-            )
-            self.visits_table.rows.append(row)
+                "bgcolor": ft.Colors.with_opacity(0.08, AppColors.ERROR) if is_out else None,
+            })
+        self.visits_table.set_rows(rows)
 
         # Mettre à jour les stats
         self._update_stats(completed, in_window, out_window, pending)

@@ -7,7 +7,7 @@ import asyncio
 import flet as ft
 from typing import Optional, Dict, List
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import StatusBadge, StatChip, ConfirmDialog
+from src.components import StatusBadge, StatChip, ConfirmDialog, AppTable
 
 
 class QueryDialog(ft.AlertDialog):
@@ -198,19 +198,8 @@ class QueriesView(ft.Container):
         self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau
-        self.queries_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Patient", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Field", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Description", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Priority", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=[],
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
+        self.queries_table = AppTable(
+            columns=["Patient", "Field", "Description", "Priority", "Status", "Actions"],
         )
 
         content = ft.Column(
@@ -219,13 +208,13 @@ class QueriesView(ft.Container):
                 ft.Container(height=Spacing.SM),
                 self.stats_row,
                 ft.Container(height=Spacing.SM),
-                ft.Container(content=self.queries_table, expand=True),
+                self.queries_table,
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._load_queries()
 
@@ -251,51 +240,43 @@ class QueriesView(ft.Container):
         self._update_stats(queries)
 
         # Tableau
-        self.queries_table.rows.clear()
+        rows = []
         for query in queries:
             patient = patients.get(query["patient_id"], {})
             status = query.get("status", "Open")
             priority = query.get("priority", "Medium")
 
-            # Badge priorité
             priority_badge = ft.Container(
                 content=ft.Text(priority, **Typography.BADGE, color=AppColors.TEXT_ON_PRIMARY),
                 bgcolor=self.PRIORITY_COLORS.get(priority, AppColors.NEUTRAL),
                 border_radius=Radius.BADGE,
                 padding=Spacing.badge(),
             )
-
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(query.get("field_name", ""), **Typography.TABLE_CELL, weight=ft.FontWeight.BOLD)),
-                    ft.DataCell(ft.Text(
-                        query.get("description", "")[:50] + "..." if len(query.get("description", "")) > 50 else query.get("description", ""),
-                        **Typography.TABLE_CELL,
-                    )),
-                    ft.DataCell(priority_badge),
-                    ft.DataCell(StatusBadge.query_status(status)),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, q=query: self._edit_query(q),
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, q=query: self._delete_query(q),
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            self.queries_table.rows.append(row)
+            desc = query.get("description", "")
+            rows.append([
+                ft.Text(patient.get("patient_number", "?"), **Typography.TABLE_CELL),
+                ft.Text(query.get("field_name", ""), size=13, weight=ft.FontWeight.BOLD),
+                ft.Text(desc[:50] + "..." if len(desc) > 50 else desc, **Typography.TABLE_CELL),
+                priority_badge,
+                StatusBadge.query_status(status),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, q=query: self._edit_query(q),
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, q=query: self._delete_query(q),
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        self.queries_table.set_rows(rows)
 
     def _update_stats(self, queries: List[Dict]):
         """Met à jour les statistiques."""

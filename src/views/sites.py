@@ -7,7 +7,7 @@ import asyncio
 import flet as ft
 from typing import Optional, Dict, List
 from src.theme import AppColors, Typography, Spacing, Radius
-from src.components import StatusBadge, StatChip, FormField, ConfirmDialog, SectionHeader
+from src.components import StatusBadge, StatChip, FormField, ConfirmDialog, SectionHeader, AppTable
 
 
 class SiteDialog(ft.AlertDialog):
@@ -180,20 +180,8 @@ class SitesView(ft.Container):
         self.stats_row = ft.Row(spacing=Spacing.SM)
 
         # Tableau des sites
-        self.sites_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Site #", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Name", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("City", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("PI", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Status", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Patients", **Typography.TABLE_HEADER)),
-                ft.DataColumn(ft.Text("Actions", **Typography.TABLE_HEADER)),
-            ],
-            rows=[],
-            border=ft.border.all(1, AppColors.BORDER),
-            border_radius=Radius.TABLE,
-            heading_row_color=AppColors.SURFACE_VARIANT,
+        self.sites_table = AppTable(
+            columns=["Site #", "Name", "City", "PI", "Status", "Patients", "Actions"],
         )
 
         content = ft.Column(
@@ -202,13 +190,13 @@ class SitesView(ft.Container):
                 ft.Container(height=Spacing.SM),
                 self.stats_row,
                 ft.Container(height=Spacing.SM),
-                ft.Container(content=self.sites_table, expand=True),
+                self.sites_table,
             ],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
 
-        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True)
+        super().__init__(content=content, padding=Spacing.PAGE_PADDING, expand=True, alignment=ft.Alignment.TOP_LEFT)
 
         self._load_sites()
 
@@ -237,7 +225,7 @@ class SitesView(ft.Container):
         self._update_stats(sites)
 
         # Mettre à jour le tableau
-        self.sites_table.rows.clear()
+        rows = []
         for site in sites:
             status = site.get("status", "Active")
 
@@ -248,37 +236,33 @@ class SitesView(ft.Container):
             if target:
                 progress_text = f"{patient_count}/{target}"
 
-            row = ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(site.get("site_number", ""), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(site.get("name", ""), **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(site.get("city", "") or "-", **Typography.TABLE_CELL)),
-                    ft.DataCell(ft.Text(site.get("principal_investigator", "") or "-", **Typography.TABLE_CELL)),
-                    ft.DataCell(StatusBadge.site_status(status)),
-                    ft.DataCell(ft.Text(progress_text, **Typography.TABLE_CELL)),
-                    ft.DataCell(
-                        ft.Row(
-                            [
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    on_click=lambda e, s=site: self._edit_site(s),
-                                    tooltip="Edit",
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_size=18,
-                                    icon_color=AppColors.ERROR,
-                                    on_click=lambda e, s=site: self._remove_site(s),
-                                    tooltip="Remove from study",
-                                ),
-                            ],
-                            spacing=0,
-                        )
-                    ),
-                ],
-            )
-            self.sites_table.rows.append(row)
+            rows.append([
+                ft.Text(site.get("site_number", ""), **Typography.TABLE_CELL),
+                ft.Text(site.get("name", ""), **Typography.TABLE_CELL),
+                ft.Text(site.get("city", "") or "-", **Typography.TABLE_CELL),
+                ft.Text(site.get("principal_investigator", "") or "-", **Typography.TABLE_CELL),
+                StatusBadge.site_status(status),
+                ft.Text(progress_text, **Typography.TABLE_CELL),
+                ft.Row(
+                    [
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_size=18,
+                            on_click=lambda e, s=site: self._edit_site(s),
+                            tooltip="Edit",
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=18,
+                            icon_color=AppColors.ERROR,
+                            on_click=lambda e, s=site: self._remove_site(s),
+                            tooltip="Remove from study",
+                        ),
+                    ],
+                    spacing=0,
+                ),
+            ])
+        self.sites_table.set_rows(rows)
 
     def _get_patient_count(self, site_id: int) -> int:
         """Compte les patients d'un site."""

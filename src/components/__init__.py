@@ -11,6 +11,7 @@ from .section_header import SectionHeader
 from .empty_state import EmptyState
 from .confirm_dialog import ConfirmDialog
 from .form_field import FormField
+from .app_table import AppTable
 
 __all__ = [
     "StatCard",
@@ -23,4 +24,5 @@ __all__ = [
     "EmptyState",
     "ConfirmDialog",
     "FormField",
+    "AppTable",
 ]

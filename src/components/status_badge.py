@@ -35,7 +35,7 @@ class StatusBadge(ft.Container):
             border_radius=Radius.BADGE,
             padding=Spacing.badge(),
             width=width,
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
         )
 
     def update_status(self, text: str, bgcolor: str) -> None:
@@ -49,8 +49,10 @@ class StatusBadge(ft.Container):
     # FACTORIES POUR DIFFÉRENTS TYPES DE STATUTS
     # ═══════════════════════════════════════════════════════════════
 
+    BADGE_WIDTH = 120
+
     @classmethod
-    def patient_status(cls, status: str, width: int = 100) -> "StatusBadge":
+    def patient_status(cls, status: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour un statut patient."""
         return cls(
             text=status,
@@ -59,7 +61,7 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def site_status(cls, status: str, width: int = 80) -> "StatusBadge":
+    def site_status(cls, status: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour un statut de site."""
         return cls(
             text=status,
@@ -68,7 +70,7 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def visit_status(cls, status: str, width: int = 100) -> "StatusBadge":
+    def visit_status(cls, status: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour un statut de visite."""
         return cls(
             text=status,
@@ -77,7 +79,7 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def ae_severity(cls, severity: str, width: int = 80) -> "StatusBadge":
+    def ae_severity(cls, severity: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour une sévérité d'EI."""
         return cls(
             text=severity,
@@ -86,9 +88,8 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def ae_outcome(cls, outcome: str, width: int = 120) -> "StatusBadge":
+    def ae_outcome(cls, outcome: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour un outcome d'EI."""
-        # Texte noir sur fond clair pour Fatal
         text_color = AppColors.TEXT_ON_LIGHT if outcome == "Fatal" else AppColors.TEXT_ON_DARK
         return cls(
             text=outcome,
@@ -98,7 +99,7 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def query_status(cls, status: str, width: int = 80) -> "StatusBadge":
+    def query_status(cls, status: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour un statut de query."""
         return cls(
             text=status,
@@ -107,7 +108,7 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def consent_status(cls, status: str, width: int = 80) -> "StatusBadge":
+    def consent_status(cls, status: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour un statut de consentement."""
         return cls(
             text=status,
@@ -116,7 +117,7 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def monitoring_type(cls, type_: str, width: int = 80) -> "StatusBadge":
+    def monitoring_type(cls, type_: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour un type de monitoring."""
         return cls(
             text=type_,
@@ -125,7 +126,7 @@ class StatusBadge(ft.Container):
         )
 
     @classmethod
-    def phase(cls, phase: str, width: int = 70) -> "StatusBadge":
+    def phase(cls, phase: str, width: int = BADGE_WIDTH) -> "StatusBadge":
         """Crée un badge pour une phase d'étude."""
         return cls(
             text=phase,
@@ -145,7 +146,7 @@ class StatChip(ft.Container):
     ):
         self.value_text = ft.Text(
             str(value),
-            **Typography.CHIP,
+            size=12,
             weight=ft.FontWeight.BOLD,
         )
 
@@ -155,6 +156,7 @@ class StatChip(ft.Container):
                 self.value_text,
             ],
             spacing=Spacing.XXS,
+            alignment=ft.MainAxisAlignment.CENTER,
         )
 
         super().__init__(
@@ -162,6 +164,8 @@ class StatChip(ft.Container):
             bgcolor=color,
             border_radius=Radius.CHIP,
             padding=Spacing.chip(),
+            width=140,
+            alignment=ft.Alignment.CENTER,
         )
 
     def update_value(self, value: str | int) -> None:

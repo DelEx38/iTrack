@@ -15,11 +15,15 @@ block_cipher = None
 PROJECT_PATH = Path(SPECPATH)
 SRC_PATH = PROJECT_PATH / 'src'
 
+ASSETS_PATH = PROJECT_PATH / 'assets'
+
 a = Analysis(
     [str(PROJECT_PATH / 'main.py')],
     pathex=[str(SRC_PATH)],
     binaries=[],
-    datas=[],
+    datas=[
+        (str(ASSETS_PATH), 'assets'),
+    ],
     hiddenimports=[
         # Flet et ses dépendances
         'flet',
@@ -76,6 +80,7 @@ a = Analysis(
         'views.settings',
         'services',
         'services.soa_parser',
+        'services.excel_importer',
         'excel_generator',
         'excel_generator.clinical',
         'excel_generator.generator',
@@ -121,5 +126,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon=str(ASSETS_PATH / 'icon.ico'),
 )
